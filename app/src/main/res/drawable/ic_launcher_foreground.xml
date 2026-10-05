@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Calendar page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,36h40a4,4 0,0 1,4 4v30a4,4 0,0 1,-4 4h-40a4,4 0,0 1,-4 -4v-30a4,4 0,0 1,4 -4z" />
+    <path
+        android:fillColor="#D2E3FC"
+        android:pathData="M34,36h40a4,4 0,0 1,4 4v6h-48v-6a4,4 0,0 1,4 -4z" />
+    <!-- Map pin -->
+    <path
+        android:fillColor="#EA4335"
+        android:pathData="M54,48c-6.1,0 -11,4.9 -11,11c0,8.2 11,19 11,19s11,-10.8 11,-19c0,-6.1 -4.9,-11 -11,-11zM54,63a4,4 0,1 1,0 -8a4,4 0,0 1,0 8z" />
+</vector>

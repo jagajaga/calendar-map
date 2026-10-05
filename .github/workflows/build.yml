@@ -1,0 +1,84 @@
+name: Build APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Compute version
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.0.${{ github.run_number }}-$SHORT_SHA" >> "$GITHUB_ENV"
+
+      - name: Set up release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::No signing secrets available; APK will be signed with a throwaway debug key."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "SIGNING_KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+            echo "SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "SIGNING_KEY_ALIAS=$KEY_ALIAS"
+            echo "SIGNING_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Test and build
+        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          APK=app/build/outputs/apk/release/app-release.apk
+          "$APKSIGNER" verify --print-certs "$APK"
+          if [ -n "$SIGNING_KEYSTORE_FILE" ] && "$APKSIGNER" verify --print-certs "$APK" | grep -q "CN=Android Debug"; then
+            echo "::error::Release APK was signed with the debug key"; exit 1
+          fi
+          mkdir -p dist
+          cp "$APK" "dist/calendar-map-$VERSION_NAME.apk"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: calendar-map-${{ env.VERSION_NAME }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Build ${{ github.run_number }} ($SHORT_SHA)"
+          git log -1 --format='%s%n%n%b' > notes.md
+          printf '\n---\nCommit: %s\n' "$GITHUB_SHA" >> notes.md
+          gh release create "build-${{ github.run_number }}" dist/*.apk \
+            --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest

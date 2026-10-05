@@ -1,0 +1,127 @@
+package com.jagajaga.calendarmap
+
+import android.Manifest
+import android.app.Application
+import android.content.pm.PackageManager
+import android.location.Location
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** Events that share one geocoded point; shown as a single pin. */
+data class Place(val point: LatLon, val events: List<CalEvent>, val distanceKm: Double?)
+
+data class MappedEvent(val event: CalEvent, val point: LatLon, val distanceKm: Double?)
+
+data class UiState(
+    val hasCalendarPermission: Boolean = false,
+    val hasLocationPermission: Boolean = false,
+    val settings: AppSettings = AppSettings(),
+    val calendars: List<CalendarInfo> = emptyList(),
+    val myLocation: LatLon? = null,
+    val loading: Boolean = false,
+    val progress: String? = null,
+    /** Everything that geocoded, before the radius filter. */
+    val mapped: List<MappedEvent> = emptyList(),
+    val unmapped: List<CalEvent> = emptyList(),
+) {
+    val inRadius: List<MappedEvent>
+        get() = mapped.filter { it.distanceKm == null || it.distanceKm <= settings.radiusKm }
+
+    val outsideRadius: Int get() = mapped.size - inRadius.size
+
+    val places: List<Place>
+        get() = inRadius.groupBy { it.point }.map { (p, list) ->
+            Place(p, list.map { it.event }.sortedBy { it.begin }, list.first().distanceKm)
+        }
+}
+
+class MainViewModel(app: Application) : AndroidViewModel(app) {
+    private val store = SettingsStore(app)
+    private val calendarRepo = CalendarRepository(app)
+    private val geo = GeoResolver(app)
+
+    private val _state = MutableStateFlow(UiState(settings = store.load()))
+    val state: StateFlow<UiState> = _state.asStateFlow()
+
+    private var loadJob: Job? = null
+
+    fun onPermissionsChanged() {
+        val ctx = getApplication<Application>()
+        val cal = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) ==
+            PackageManager.PERMISSION_GRANTED
+        _state.update {
+            it.copy(hasCalendarPermission = cal, hasLocationPermission = LocationProvider.hasPermission(ctx))
+        }
+        refresh(relocate = true)
+    }
+
+    fun updateSettings(transform: (AppSettings) -> AppSettings) {
+        val old = _state.value.settings
+        val new = transform(old)
+        if (new == old) return
+        store.save(new)
+        _state.update { it.copy(settings = new) }
+        // Radius is a pure client-side filter; everything else needs a re-query.
+        if (new.copy(radiusKm = old.radiusKm) != old) refresh(relocate = false)
+    }
+
+    fun clearGeocodeCache() {
+        geo.clearCache()
+        refresh(relocate = false)
+    }
+
+    fun refresh(relocate: Boolean = true) {
+        val ctx = getApplication<Application>()
+        if (!_state.value.hasCalendarPermission) return
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _state.update { it.copy(loading = true, progress = "Reading calendars…") }
+
+            if (relocate || _state.value.myLocation == null) {
+                val loc: Location? = LocationProvider.current(ctx)
+                if (loc != null) _state.update { it.copy(myLocation = LatLon(loc.latitude, loc.longitude)) }
+            }
+
+            val settings = _state.value.settings
+            val (start, end) = settings.timeWindow()
+            val (calendars, events) = withContext(Dispatchers.IO) {
+                calendarRepo.calendars() to calendarRepo.events(start, end, settings.selectedCalendarIds)
+            }
+            _state.update { it.copy(calendars = calendars) }
+
+            val visible = events.filter { settings.showAllDay || !it.allDay }
+            val uniqueLocations = visible.map { it.location }.filter { it.isNotBlank() }.distinct()
+            val resolved = HashMap<String, LatLon?>()
+            uniqueLocations.forEachIndexed { i, loc ->
+                _state.update { it.copy(progress = "Finding places ${i + 1}/${uniqueLocations.size}…") }
+                resolved[loc] = geo.resolve(loc)
+            }
+
+            val me = _state.value.myLocation
+            val mapped = mutableListOf<MappedEvent>()
+            val unmapped = mutableListOf<CalEvent>()
+            for (e in visible) {
+                val p = resolved[e.location]
+                if (p == null) unmapped += e else mapped += MappedEvent(e, p, me?.let { distanceKm(it, p) })
+            }
+            _state.update { it.copy(loading = false, progress = null, mapped = mapped, unmapped = unmapped) }
+        }
+    }
+
+    companion object {
+        fun distanceKm(a: LatLon, b: LatLon): Double {
+            val out = FloatArray(1)
+            Location.distanceBetween(a.lat, a.lon, b.lat, b.lon, out)
+            return out[0] / 1000.0
+        }
+    }
+}

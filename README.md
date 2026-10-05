@@ -1,0 +1,58 @@
+# Calendar Map
+
+An Android app that puts the events from your calendars on a map.
+
+- Reads every calendar synced to the phone (Google, Exchange, local…) via the
+  system calendar provider. No sign-in, no API keys.
+- Shows only events within a radius of where you are (default **50 km**,
+  adjustable from 1 km up to 20,000 km).
+- Pick which calendars to include.
+- Pick the time range: Today, Tomorrow, Next 7 days, Next 30 days, or any
+  custom date range.
+- Every pin shows the event's start and end time. Events at the same place
+  share one pin.
+- Tap a pin to see the event details, open the place in **Google Maps**, or
+  open the event in your calendar app.
+- The list view shows every event in the range, including ones farther away
+  and ones without a recognizable place.
+
+Event locations are turned into coordinates with Android's built-in geocoder
+and cached on the device. Online-meeting locations (Zoom, Meet, Teams, URLs)
+are skipped. The maps are from [OpenStreetMap](https://www.openstreetmap.org/copyright).
+
+## Install
+
+Every commit to `main` publishes a signed APK on the
+[Releases page](../../releases). Download the latest `calendar-map-*.apk` on
+your phone, open it, and allow installs from your browser when asked.
+Every build is signed with the same key, so new builds install over the
+old one.
+
+APKs for every other commit and pull request are in the run's **Artifacts**
+section under [Actions](../../actions). Artifacts download as a zip, and you
+must be signed in to GitHub to get them.
+
+## Build locally
+
+Requires JDK 17 and the Android SDK (platform 35).
+
+```sh
+./gradlew testReleaseUnitTest assembleRelease
+```
+
+Without the signing environment variables, local release builds are signed
+with your debug key.
+
+## CI signing
+
+`.github/workflows/build.yml` reads these repository secrets:
+
+| Secret | Meaning |
+| --- | --- |
+| `KEYSTORE_BASE64` | base64 of the release `.jks` |
+| `KEYSTORE_PASSWORD` | keystore password |
+| `KEY_ALIAS` | key alias |
+| `KEY_PASSWORD` | key password |
+
+If the secrets are missing (for example, in pull requests from forks), the
+build falls back to a debug key, and that APK won't install over a release build.
