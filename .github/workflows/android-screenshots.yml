@@ -5,7 +5,7 @@ name: Android screenshots
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, "screenshots/**", "feat/android-screenshots"]
     paths: ["app/**", "shared/**", ".github/workflows/android-screenshots.yml"]
 
 jobs:
