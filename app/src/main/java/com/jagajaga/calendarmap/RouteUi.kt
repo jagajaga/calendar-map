@@ -159,7 +159,7 @@ fun RouteSheet(
                     item {
                         val first = route.events[plan.visits[0].stop].event.title
                         plan.gaps.firstOrNull { it.beforeVisit == 0 }
-                            ?.let { FreeTime.describe(it, first, atStart = true) }
+                            ?.let { FreeTime.describe(it, first, atStart = true, zoneId = systemZone.id, clock = TimeFormat::clock) }
                             ?.let { FreeTimeNote(it) }
                         val now = System.currentTimeMillis()
                         Text(
@@ -176,7 +176,7 @@ fun RouteSheet(
                 val m = route.events[v.stop]
                 if (k > 0) {
                     plan.gaps.firstOrNull { it.beforeVisit == k }
-                        ?.let { FreeTime.describe(it, m.event.title, atStart = false) }
+                        ?.let { FreeTime.describe(it, m.event.title, atStart = false, zoneId = systemZone.id, clock = TimeFormat::clock) }
                         ?.let { FreeTimeNote(it) }
                 }
                 val prevDay = if (k == 0) TimeFormat.localDate(System.currentTimeMillis())
@@ -244,7 +244,7 @@ fun RouteSheet(
 }
 
 @Composable
-private fun StopCard(number: Int, m: MappedEvent, v: RoutePlanner.Visit, onClick: () -> Unit) {
+private fun StopCard(number: Int, m: MappedEvent, v: PlanVisit, onClick: () -> Unit) {
     val e = m.event
     ElevatedCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {

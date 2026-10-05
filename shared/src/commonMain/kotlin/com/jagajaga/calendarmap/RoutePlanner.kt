@@ -1,5 +1,56 @@
 package com.jagajaga.calendarmap
 
+data class PlanStop(val begin: Long, val end: Long)
+
+data class PlanVisit(
+    val stop: Int,
+    /** When you get there (may be before the event starts). */
+    val arrive: Long,
+    /** When your stay starts: max(arrive, begin). */
+    val stayFrom: Long,
+    /** Latest you can leave and still make the rest of the plan. */
+    val leaveBy: Long,
+    /** Travel time of the leg that brought you here. */
+    val travelMs: Long,
+)
+
+/**
+ * Free time with nothing to attend and no need to be travelling.
+ *
+ * @param beforeVisit index into [RoutePlan.visits] of the stop you'll head to next.
+ *   `0` with [RoutePlan.departAt] set means "before leaving your start point".
+ * @param from when you're free: the previous event's end (or now, at the start).
+ * @param until the latest you can leave and still arrive as the next event starts.
+ */
+data class PlanGap(val beforeVisit: Int, val from: Long, val until: Long) {
+    val lengthMs: Long get() = until - from
+}
+
+data class RoutePlan(
+    val visits: List<PlanVisit>,
+    val missed: List<Int>,
+    val totalTravelMs: Long,
+    /** When to leave the start point, if there is one. */
+    val departAt: Long?,
+    /** Positive free windows, in route order. */
+    val gaps: List<PlanGap> = emptyList(),
+) {
+    /** Free time between events, not counting the wait before setting off. */
+    val freeBetweenMs: Long get() = gaps.filter { it.beforeVisit > 0 }.sumOf { it.lengthMs }
+}
+
+
+/** Travel times between route nodes, in a shape that's easy to fill from Swift. */
+class TravelMatrix(val size: Int) {
+    internal val rows: Array<LongArray> = Array(size) { LongArray(size) }
+
+    fun put(from: Int, to: Int, ms: Long) {
+        rows[from][to] = ms
+    }
+
+    fun at(from: Int, to: Int): Long = rows[from][to]
+}
+
 /**
  * Picks which selected events to attend, and in what order, given travel times.
  *
@@ -11,60 +62,21 @@ package com.jagajaga.calendarmap
 object RoutePlanner {
     const val MAX_STOPS = 10
 
-    data class Stop(val begin: Long, val end: Long)
-
-    data class Visit(
-        val stop: Int,
-        /** When you get there (may be before the event starts). */
-        val arrive: Long,
-        /** When your stay starts: max(arrive, begin). */
-        val stayFrom: Long,
-        /** Latest you can leave and still make the rest of the plan. */
-        val leaveBy: Long,
-        /** Travel time of the leg that brought you here. */
-        val travelMs: Long,
-    )
-
-    /**
-     * Free time with nothing to attend and no need to be travelling.
-     *
-     * @param beforeVisit index into [Plan.visits] of the stop you'll head to next.
-     *   `0` with [Plan.departAt] set means "before leaving your start point".
-     * @param from when you're free: the previous event's end (or now, at the start).
-     * @param until the latest you can leave and still arrive as the next event starts.
-     */
-    data class Gap(val beforeVisit: Int, val from: Long, val until: Long) {
-        val lengthMs: Long get() = until - from
-    }
-
-    data class Plan(
-        val visits: List<Visit>,
-        val missed: List<Int>,
-        val totalTravelMs: Long,
-        /** When to leave the start point, if there is one. */
-        val departAt: Long?,
-        /** Positive free windows, in route order. */
-        val gaps: List<Gap> = emptyList(),
-    ) {
-        /** Free time between events, not counting the wait before setting off. */
-        val freeBetweenMs: Long get() = gaps.filter { it.beforeVisit > 0 }.sumOf { it.lengthMs }
-    }
-
     /**
      * @param travelMs travel time between nodes; nodes `0 until stops.size` are
      *   the stops, and node `stops.size` is the start point when [hasStart].
      * @param now earliest moment you can leave the start point.
      */
     fun plan(
-        stops: List<Stop>,
+        stops: List<PlanStop>,
         travelMs: Array<LongArray>,
         hasStart: Boolean,
         minStayMs: Long?,
         now: Long,
-    ): Plan {
+    ): RoutePlan {
         val n = stops.size
         require(n <= MAX_STOPS) { "At most $MAX_STOPS stops" }
-        if (n == 0) return Plan(emptyList(), emptyList(), 0, null)
+        if (n == 0) return RoutePlan(emptyList(), emptyList(), 0, null)
         val required = LongArray(n) { i ->
             val len = stops[i].end - stops[i].begin
             if (minStayMs == null) len else minOf(minStayMs, len)
@@ -111,17 +123,25 @@ object RoutePlanner {
         return buildPlan(bestOrder, stops, travelMs, hasStart, required, now)
     }
 
+    fun plan(
+        stops: List<PlanStop>,
+        matrix: TravelMatrix,
+        hasStart: Boolean,
+        minStayMs: Long?,
+        now: Long,
+    ): RoutePlan = plan(stops, matrix.rows, hasStart, minStayMs, now)
+
     private fun buildPlan(
         order: IntArray,
-        stops: List<Stop>,
+        stops: List<PlanStop>,
         travelMs: Array<LongArray>,
         hasStart: Boolean,
         required: LongArray,
         now: Long,
-    ): Plan {
+    ): RoutePlan {
         val n = stops.size
         val missed = (0 until n).filter { it !in order }
-        if (order.isEmpty()) return Plan(emptyList(), missed, 0, null)
+        if (order.isEmpty()) return RoutePlan(emptyList(), missed, 0, null)
 
         val legs = LongArray(order.size) { k ->
             when {
@@ -156,19 +176,19 @@ object RoutePlanner {
             maxOf(now, minOf(firstStop.begin, latestStayStart) - legs[0])
         } else null
 
-        val visits = order.indices.map { k -> Visit(order[k], arrive[k], stayFrom[k], leaveBy[k], legs[k]) }
+        val visits = order.indices.map { k -> PlanVisit(order[k], arrive[k], stayFrom[k], leaveBy[k], legs[k]) }
 
         // Free windows: from when one event ends until you must set off to arrive
         // as the next one begins. If you'd have to leave before the end, there's none.
-        val gaps = mutableListOf<Gap>()
-        if (departAt != null && departAt > now) gaps += Gap(0, now, departAt)
+        val gaps = mutableListOf<PlanGap>()
+        if (departAt != null && departAt > now) gaps += PlanGap(0, now, departAt)
         for (k in 1 until order.size) {
             val next = stops[order[k]]
             val latestStayStart = leaveBy[k] - required[order[k]]
             val setOff = minOf(next.begin, latestStayStart) - legs[k]
             val prevEnd = stops[order[k - 1]].end
-            if (setOff > prevEnd) gaps += Gap(k, prevEnd, setOff)
+            if (setOff > prevEnd) gaps += PlanGap(k, prevEnd, setOff)
         }
-        return Plan(visits, missed, legs.sum(), departAt, gaps)
+        return RoutePlan(visits, missed, legs.sum(), departAt, gaps)
     }
 }

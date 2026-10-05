@@ -1,0 +1,79 @@
+name: iOS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Shared tests on the iOS simulator, then build Shared.xcframework
+        run: ./gradlew --no-daemon :shared:iosSimulatorArm64Test :shared:assembleSharedReleaseXCFramework
+
+      - name: Generate Xcode project
+        if: hashFiles('ios/project.yml') != ''
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Pick a simulator
+        if: hashFiles('ios/project.yml') != ''
+        run: |
+          xcodebuild -version
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              if ".iOS-" not in runtime:
+                  continue
+              for d in devices[runtime]:
+                  if d["name"].startswith("iPhone"):
+                      print(d["udid"]); sys.exit(0)
+          sys.exit("no iPhone simulator")')
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices available | grep "$UDID"
+
+      - name: Build and test (unit + UI tests, simulator)
+        if: hashFiles('ios/project.yml') != ''
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/CalendarMap.xcodeproj -scheme CalendarMap \
+            -destination "id=$SIM_UDID" \
+            -resultBundlePath build/CalendarMap.xcresult \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            | tee build/xcodebuild.log | grep -E "error:|warning: .*CalendarMap/|Test Case|Executed|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build/xcodebuild.log
+
+      - name: Export UI-test screenshots
+        if: always() && hashFiles('build/CalendarMap.xcresult/Info.plist') != ''
+        run: |
+          mkdir -p build/screenshots
+          xcrun xcresulttool export attachments --path build/CalendarMap.xcresult --output-path build/screenshots || true
+          ls -la build/screenshots
+
+      - uses: actions/upload-artifact@v5
+        if: always() && hashFiles('ios/project.yml') != ''
+        with:
+          name: ios-screenshots-${{ github.run_number }}
+          path: |
+            build/screenshots
+            build/xcodebuild.log
+          if-no-files-found: ignore

@@ -1,25 +1,7 @@
 package com.jagajaga.calendarmap
 
 import android.content.Context
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
-
-enum class RangePreset(val label: String) {
-    TODAY("Today"),
-    TOMORROW("Tomorrow"),
-    WEEK("Next 7 days"),
-    MONTH("Next 30 days"),
-    CUSTOM("Custom"),
-}
-
-enum class AreaMode(val label: String) {
-    VISIBLE_MAP("Visible map area"),
-    RADIUS("Within a radius of me"),
-}
-
-/** Minimum time to spend at each event when planning a route; null = the whole event. */
-val STAY_OPTIONS: List<Int?> = listOf(15, 30, 60, null)
 
 data class AppSettings(
     val radiusKm: Int = DEFAULT_RADIUS_KM,
@@ -43,23 +25,10 @@ data class AppSettings(
 
 /** The [start, end) window in epoch millis that the current settings ask for. */
 fun AppSettings.timeWindow(
-    now: ZonedDateTime = ZonedDateTime.now(),
-): Pair<Long, Long> {
-    val zone = now.zone
-    val today = now.toLocalDate()
-    fun dayStart(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
-    return when (preset) {
-        RangePreset.TODAY -> dayStart(today) to dayStart(today.plusDays(1))
-        RangePreset.TOMORROW -> dayStart(today.plusDays(1)) to dayStart(today.plusDays(2))
-        RangePreset.WEEK -> now.toInstant().toEpochMilli() to now.plusDays(7).toInstant().toEpochMilli()
-        RangePreset.MONTH -> now.toInstant().toEpochMilli() to now.plusDays(30).toInstant().toEpochMilli()
-        RangePreset.CUSTOM -> {
-            val s = customStartDay?.let(LocalDate::ofEpochDay) ?: today
-            val e = customEndDay?.let(LocalDate::ofEpochDay) ?: s
-            dayStart(s) to dayStart(e.plusDays(1))
-        }
-    }
-}
+    nowMs: Long = System.currentTimeMillis(),
+    zoneId: String = systemZone.id,
+): Pair<Long, Long> =
+    TimeWindows.compute(preset, customStartDay, customEndDay, nowMs, zoneId).let { it.start to it.end }
 
 class SettingsStore(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)

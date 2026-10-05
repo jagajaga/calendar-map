@@ -10,8 +10,6 @@ import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class LatLon(val lat: Double, val lon: Double)
-
 /**
  * Turns free-text event locations into coordinates with the platform geocoder,
  * caching hits forever and misses for a day so the map loads fast on reopen.
@@ -22,8 +20,8 @@ class GeoResolver(context: Context) {
 
     suspend fun resolve(location: String): LatLon? {
         val text = location.trim()
-        if (text.isEmpty() || looksVirtual(text)) return null
-        parseCoordinates(text)?.let { return it }
+        if (text.isEmpty() || GeoText.looksVirtual(text)) return null
+        GeoText.parseCoordinates(text)?.let { return it }
 
         val key = text.lowercase()
         prefs.getString(key, null)?.let { cached ->
@@ -31,7 +29,7 @@ class GeoResolver(context: Context) {
                 val ts = cached.removePrefix(MISS).toLongOrNull() ?: 0L
                 if (System.currentTimeMillis() - ts < MISS_TTL_MS) return null
             } else {
-                parseCoordinates(cached)?.let { return it }
+                GeoText.parseCoordinates(cached)?.let { return it }
             }
         }
         if (!Geocoder.isPresent()) return null
@@ -74,22 +72,8 @@ class GeoResolver(context: Context) {
             }
         }
 
-    companion object {
-        private const val MISS = "miss:"
-        private const val MISS_TTL_MS = 24L * 60 * 60 * 1000
-        private val COORDS = Regex("""^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$""")
-        private val VIRTUAL = Regex(
-            """^(https?://|www\.)|zoom\.us|meet\.google|teams\.microsoft|^(online|virtual|remote|zoom|google meet|microsoft teams|teams|skype|phone|call)$""",
-            RegexOption.IGNORE_CASE,
-        )
-
-        fun parseCoordinates(text: String): LatLon? {
-            val m = COORDS.matchEntire(text) ?: return null
-            val lat = m.groupValues[1].toDouble()
-            val lon = m.groupValues[2].toDouble()
-            return if (lat in -90.0..90.0 && lon in -180.0..180.0) LatLon(lat, lon) else null
-        }
-
-        fun looksVirtual(text: String) = VIRTUAL.containsMatchIn(text.trim())
+    private companion object {
+        const val MISS = "miss:"
+        const val MISS_TTL_MS = 24L * 60 * 60 * 1000
     }
 }

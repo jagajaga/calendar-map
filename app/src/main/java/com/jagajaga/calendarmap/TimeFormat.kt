@@ -58,16 +58,7 @@ object TimeFormat {
         return if (t.toLocalDate() == today) t.format(time) else "${t.format(shortDay)} ${t.format(time)}"
     }
 
-    fun duration(ms: Long): String {
-        val totalMin = ((ms + 30_000) / 60_000).coerceAtLeast(0)
-        val h = totalMin / 60
-        val m = totalMin % 60
-        return when {
-            h == 0L -> "$m min"
-            m == 0L -> "$h h"
-            else -> "$h h $m min"
-        }
-    }
+    fun duration(ms: Long): String = Durations.format(ms)
 
     fun localDate(ms: Long): java.time.LocalDate = Instant.ofEpochMilli(ms).atZone(systemZone).toLocalDate()
 

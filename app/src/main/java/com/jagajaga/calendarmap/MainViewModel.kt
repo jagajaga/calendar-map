@@ -21,31 +21,10 @@ data class Place(val point: LatLon, val events: List<CalEvent>, val distanceKm: 
 
 data class MappedEvent(val event: CalEvent, val point: LatLon, val distanceKm: Double?)
 
-/** The map's visible area; west > east when it spans the antimeridian. */
-data class Bounds(val north: Double, val south: Double, val east: Double, val west: Double) {
-    operator fun contains(p: LatLon): Boolean {
-        if (p.lat > north || p.lat < south) return false
-        return if (west <= east) p.lon in west..east else p.lon >= west || p.lon <= east
-    }
-
-    /** Grow by [fraction] of the size on each side, so pins near the edge are ready. */
-    fun padded(fraction: Double): Bounds {
-        val dLat = (north - south) * fraction
-        val width = if (west <= east) east - west else east + 360 - west
-        val dLon = width * fraction
-        return Bounds(
-            (north + dLat).coerceAtMost(90.0), (south - dLat).coerceAtLeast(-90.0),
-            wrapLon(east + dLon), wrapLon(west - dLon),
-        ).let { if (width + 2 * dLon >= 360) it.copy(east = 180.0, west = -180.0) else it }
-    }
-
-    private fun wrapLon(x: Double) = ((x + 540) % 360) - 180
-}
-
 data class RouteResult(
-    /** Selected events, indexed by [RoutePlanner.Visit.stop]. */
+    /** Selected events, indexed by [PlanVisit.stop]. */
     val events: List<MappedEvent>,
-    val plan: RoutePlanner.Plan,
+    val plan: RoutePlan,
     val path: List<LatLon>,
     val start: LatLon?,
     val mode: TravelMode,
@@ -174,8 +153,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val matrix = router.matrix(points, settings.travelMode)
             val plan = withContext(Dispatchers.Default) {
                 RoutePlanner.plan(
-                    stops = chosen.map { RoutePlanner.Stop(localBegin(it.event), localEnd(it.event)) },
-                    travelMs = matrix.durationsMs,
+                    stops = chosen.map { PlanStop(localBegin(it.event), localEnd(it.event)) },
+                    matrix = matrix.durations,
                     hasStart = start != null,
                     minStayMs = settings.stayMinutes?.let { it * 60_000L },
                     now = System.currentTimeMillis(),
