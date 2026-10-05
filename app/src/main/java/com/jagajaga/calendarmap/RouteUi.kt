@@ -29,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,7 +88,9 @@ private fun summary(route: RouteResult): String {
     val n = route.plan.visits.size
     val total = route.events.size
     val stops = if (n == total) "$n event${if (n == 1) "" else "s"}" else "$n of $total events"
-    return "$stops · ${TimeFormat.duration(route.plan.totalTravelMs)} ${route.mode.label.lowercase()}"
+    val free = route.plan.freeBetweenMs
+    val freeText = if (free >= FreeTime.MIN_SHOWN_MS) " · ${TimeFormat.duration(free)} free" else ""
+    return "$stops · ${TimeFormat.duration(route.plan.totalTravelMs)} ${route.mode.label.lowercase()}$freeText"
 }
 
 @Composable
@@ -154,6 +157,10 @@ fun RouteSheet(
             plan.departAt?.let { depart ->
                 if (plan.visits.isNotEmpty()) {
                     item {
+                        val first = route.events[plan.visits[0].stop].event.title
+                        plan.gaps.firstOrNull { it.beforeVisit == 0 }
+                            ?.let { FreeTime.describe(it, first, atStart = true) }
+                            ?.let { FreeTimeNote(it) }
                         val now = System.currentTimeMillis()
                         Text(
                             if (depart <= now + 60_000) "Leave now from your location"
@@ -167,6 +174,21 @@ fun RouteSheet(
             items(plan.visits.size) { k ->
                 val v = plan.visits[k]
                 val m = route.events[v.stop]
+                if (k > 0) {
+                    plan.gaps.firstOrNull { it.beforeVisit == k }
+                        ?.let { FreeTime.describe(it, m.event.title, atStart = false) }
+                        ?.let { FreeTimeNote(it) }
+                }
+                val prevDay = if (k == 0) TimeFormat.localDate(System.currentTimeMillis())
+                else TimeFormat.localDate(plan.visits[k - 1].stayFrom)
+                if (TimeFormat.localDate(v.stayFrom) != prevDay) {
+                    Text(
+                        TimeFormat.dayTitle(v.stayFrom),
+                        Modifier.padding(top = 12.dp, bottom = 2.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 if (k > 0 || route.start != null) {
                     Text(
                         "↓  ${TimeFormat.duration(v.travelMs)} ${route.mode.label.lowercase()}",
@@ -178,6 +200,14 @@ fun RouteSheet(
                     Spacer(Modifier.height(8.dp))
                 }
                 StopCard(k + 1, m, v, onClick = { onFocus(m.point) })
+                if (k == plan.visits.size - 1) {
+                    Text(
+                        "Last event ends at ${TimeFormat.clock(MainViewModel.localEnd(m.event))}.",
+                        Modifier.padding(start = 12.dp, top = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (plan.missed.isNotEmpty()) {
                 item {
@@ -252,6 +282,22 @@ private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onS
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(options) { o ->
             FilterChip(selected = o == selected, onClick = { onSelect(o) }, label = { Text(label(o)) })
+        }
+    }
+}
+
+@Composable
+private fun FreeTimeNote(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("☕", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(10.dp))
+            Text(text, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

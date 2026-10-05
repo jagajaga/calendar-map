@@ -20,7 +20,9 @@ An Android app that puts the events from your calendars on a map.
   order. It respects each event's start and end time, a minimum stay
   (15 min, 30 min, 1 h, or the whole event), and travel by foot, bike, or
   car. You get the road route on the map, arrive and leave-by times, the
-  events that don't fit, and a button that opens the route in Google Maps.
+  free time between events ("you have 2 h 30 min free to do whatever you
+  want"), the events that don't fit, and a button that opens the route in
+  Google Maps.
   Travel times come from the OpenStreetMap routing service
   (routing.openstreetmap.de), with straight-line estimates when offline.
 - The list view shows every event in the range, including ones farther away

@@ -68,4 +68,17 @@ object TimeFormat {
             else -> "$h h $m min"
         }
     }
+
+    fun localDate(ms: Long): java.time.LocalDate = Instant.ofEpochMilli(ms).atZone(systemZone).toLocalDate()
+
+    /** "Today", "Tomorrow", or e.g. "Thursday, 8 October 2026". */
+    fun dayTitle(ms: Long): String {
+        val d = localDate(ms)
+        val today = java.time.LocalDate.now(systemZone)
+        return when (d) {
+            today -> "Today"
+            today.plusDays(1) -> "Tomorrow"
+            else -> d.format(longDay)
+        }
+    }
 }

@@ -77,4 +77,30 @@ class RoutePlannerTest {
         assertEquals(n, plan.visits.size)
         assertTrue("took $ms ms", ms < 3_000)
     }
+
+    @Test fun gapBetweenEventsSubtractsTravel() {
+        // A 16:00–18:00, B 21:00–22:00, 30 min apart: free 18:00–20:30.
+        val stops = listOf(Stop(16 * hour, 18 * hour), Stop(21 * hour, 22 * hour))
+        val m = matrix(row(0, 30), row(30, 0))
+        val plan = RoutePlanner.plan(stops, m, hasStart = false, minStayMs = null, now = 0)
+        assertEquals(listOf(RoutePlanner.Gap(1, 18 * hour, 20 * hour + 30 * min)), plan.gaps)
+        assertEquals(2 * hour + 30 * min, plan.freeBetweenMs)
+    }
+
+    @Test fun noGapWhenYouMustLeaveBeforeTheEnd() {
+        // A runs until 19:00 but B starts at 18:30, 20 min away.
+        val stops = listOf(Stop(16 * hour, 19 * hour), Stop(18 * hour + 30 * min, 20 * hour))
+        val m = matrix(row(0, 20), row(20, 0))
+        val plan = RoutePlanner.plan(stops, m, hasStart = false, minStayMs = 30 * min, now = 0)
+        assertEquals(2, plan.visits.size)
+        assertTrue(plan.gaps.isEmpty())
+    }
+
+    @Test fun freeTimeBeforeSettingOffIsNotCountedAsBetween() {
+        val stops = listOf(Stop(5 * hour, 6 * hour))
+        val m = matrix(row(0, 99), row(15, 0))
+        val plan = RoutePlanner.plan(stops, m, hasStart = true, minStayMs = null, now = hour)
+        assertEquals(listOf(RoutePlanner.Gap(0, hour, 5 * hour - 15 * min)), plan.gaps)
+        assertEquals(0L, plan.freeBetweenMs)
+    }
 }

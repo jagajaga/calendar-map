@@ -25,13 +25,30 @@ object RoutePlanner {
         val travelMs: Long,
     )
 
+    /**
+     * Free time with nothing to attend and no need to be travelling.
+     *
+     * @param beforeVisit index into [Plan.visits] of the stop you'll head to next.
+     *   `0` with [Plan.departAt] set means "before leaving your start point".
+     * @param from when you're free: the previous event's end (or now, at the start).
+     * @param until the latest you can leave and still arrive as the next event starts.
+     */
+    data class Gap(val beforeVisit: Int, val from: Long, val until: Long) {
+        val lengthMs: Long get() = until - from
+    }
+
     data class Plan(
         val visits: List<Visit>,
         val missed: List<Int>,
         val totalTravelMs: Long,
         /** When to leave the start point, if there is one. */
         val departAt: Long?,
-    )
+        /** Positive free windows, in route order. */
+        val gaps: List<Gap> = emptyList(),
+    ) {
+        /** Free time between events, not counting the wait before setting off. */
+        val freeBetweenMs: Long get() = gaps.filter { it.beforeVisit > 0 }.sumOf { it.lengthMs }
+    }
 
     /**
      * @param travelMs travel time between nodes; nodes `0 until stops.size` are
@@ -140,6 +157,18 @@ object RoutePlanner {
         } else null
 
         val visits = order.indices.map { k -> Visit(order[k], arrive[k], stayFrom[k], leaveBy[k], legs[k]) }
-        return Plan(visits, missed, legs.sum(), departAt)
+
+        // Free windows: from when one event ends until you must set off to arrive
+        // as the next one begins. If you'd have to leave before the end, there's none.
+        val gaps = mutableListOf<Gap>()
+        if (departAt != null && departAt > now) gaps += Gap(0, now, departAt)
+        for (k in 1 until order.size) {
+            val next = stops[order[k]]
+            val latestStayStart = leaveBy[k] - required[order[k]]
+            val setOff = minOf(next.begin, latestStayStart) - legs[k]
+            val prevEnd = stops[order[k - 1]].end
+            if (setOff > prevEnd) gaps += Gap(k, prevEnd, setOff)
+        }
+        return Plan(visits, missed, legs.sum(), departAt, gaps)
     }
 }
