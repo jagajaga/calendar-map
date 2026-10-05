@@ -40,12 +40,14 @@ jobs:
           UDID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]
-          for runtime in sorted(devices, reverse=True):
-              if ".iOS-" not in runtime:
-                  continue
-              for d in devices[runtime]:
-                  if d["name"].startswith("iPhone"):
-                      print(d["udid"]); sys.exit(0)
+          # Prefer a Pro Max: its screenshots are the 6.9" size App Store Connect requires.
+          for wanted in ("Pro Max", "Plus", ""):
+              for runtime in sorted(devices, reverse=True):
+                  if ".iOS-" not in runtime:
+                      continue
+                  for d in devices[runtime]:
+                      if d["name"].startswith("iPhone") and wanted in d["name"]:
+                          print(d["udid"]); sys.exit(0)
           sys.exit("no iPhone simulator")')
           echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
           xcrun simctl list devices available | grep "$UDID"
