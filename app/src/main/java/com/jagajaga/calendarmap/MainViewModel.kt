@@ -85,7 +85,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val router = Router("${app.packageName} (github.com/jagajaga/calendar-map)")
     private var routeJob: Job? = null
 
-    private val _state = MutableStateFlow(UiState(settings = store.load()))
+    private val _state = MutableStateFlow(UiState(settings = if (Demo.enabled) AppSettings() else store.load()))
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var loadJob: Job? = null
@@ -95,7 +95,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val cal = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) ==
             PackageManager.PERMISSION_GRANTED
         _state.update {
-            it.copy(hasCalendarPermission = cal, hasLocationPermission = LocationProvider.hasPermission(ctx))
+            if (Demo.enabled) it.copy(hasCalendarPermission = true, hasLocationPermission = true, myLocation = Demo.me)
+            else it.copy(hasCalendarPermission = cal, hasLocationPermission = LocationProvider.hasPermission(ctx))
         }
         refresh(relocate = true)
     }
@@ -104,7 +105,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val old = _state.value.settings
         val new = transform(old)
         if (new == old) return
-        store.save(new)
+        if (!Demo.enabled) store.save(new)
         _state.update { it.copy(settings = new) }
         // These only change client-side filtering or routing; anything else needs a re-query.
         val local = new.copy(
@@ -184,15 +185,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, progress = "Reading calendars…") }
 
-            if (relocate || _state.value.myLocation == null) {
+            if (!Demo.enabled && (relocate || _state.value.myLocation == null)) {
                 val loc: Location? = LocationProvider.current(ctx)
                 if (loc != null) _state.update { it.copy(myLocation = LatLon(loc.latitude, loc.longitude)) }
             }
 
             val settings = _state.value.settings
             val (start, end) = settings.timeWindow()
-            val (calendars, events) = withContext(Dispatchers.IO) {
-                calendarRepo.calendars() to calendarRepo.events(start, end, settings.selectedCalendarIds)
+            val (calendars, events) = if (Demo.enabled) {
+                Demo.calendars to Demo.events().filter { e ->
+                    e.end > start && e.begin < end && (settings.selectedCalendarIds?.contains(e.calendarId) ?: true)
+                }
+            } else {
+                withContext(Dispatchers.IO) {
+                    calendarRepo.calendars() to calendarRepo.events(start, end, settings.selectedCalendarIds)
+                }
             }
             _state.update { it.copy(calendars = calendars) }
 
@@ -201,7 +208,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val resolved = HashMap<String, LatLon?>()
             uniqueLocations.forEachIndexed { i, loc ->
                 _state.update { it.copy(progress = "Finding places ${i + 1}/${uniqueLocations.size}…") }
-                resolved[loc] = geo.resolve(loc)
+                resolved[loc] = if (Demo.enabled) Demo.places[loc] else geo.resolve(loc)
             }
 
             val me = _state.value.myLocation

@@ -37,6 +37,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +67,7 @@ fun PlanningBar(
                     Spacer(Modifier.width(12.dp))
                     Text("Planning…")
                 } else {
-                    Button(onClick = onBuild, enabled = selected > 0) { Text("Build route") }
+                    Button(onClick = onBuild, enabled = selected > 0, modifier = Modifier.testTag("buildRouteButton")) { Text("Build route") }
                 }
             }
         }
@@ -108,7 +109,10 @@ fun RouteSheet(
     val context = LocalContext.current
     val plan = route.plan
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
+            modifier = Modifier.testTag("routeSheet"),
+        ) {
             item {
                 Text("Your route", style = MaterialTheme.typography.titleLarge)
                 Text(summary(route), style = MaterialTheme.typography.bodyMedium)

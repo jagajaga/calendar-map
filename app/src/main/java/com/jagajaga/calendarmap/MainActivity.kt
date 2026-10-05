@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
             load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
             userAgentValue = "$packageName/${BuildConfigInfo.versionName(this@MainActivity)}"
         }
+        Demo.enabled = intent.getBooleanExtra(Demo.EXTRA, false)
         enableEdgeToEdge()
         setContent { AppTheme { MainScreen() } }
     }

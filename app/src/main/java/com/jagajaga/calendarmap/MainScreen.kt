@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
@@ -71,11 +72,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         asked = true
         vm.onPermissionsChanged()
     }
-    var disclosed by remember { mutableStateOf(Disclosure.isAccepted(context)) }
+    var disclosed by remember { mutableStateOf(Demo.enabled || Disclosure.isAccepted(context)) }
     LaunchedEffect(disclosed) {
         vm.onPermissionsChanged()
         val missing = !vm.state.value.hasCalendarPermission || !vm.state.value.hasLocationPermission
-        if (disclosed && missing) permissionLauncher.launch(MainActivity.PERMISSIONS)
+        if (disclosed && missing && !Demo.enabled) permissionLauncher.launch(MainActivity.PERMISSIONS)
     }
     if (!disclosed) {
         DisclosureScreen(
@@ -136,9 +137,9 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             TopAppBar(
                 title = { Text("Calendar Map") },
                 actions = {
-                    IconButton(onClick = { showList = true }) { Icon(Icons.AutoMirrored.Filled.List, "Event list") }
+                    IconButton(onClick = { showList = true }, modifier = Modifier.testTag("listButton")) { Icon(Icons.AutoMirrored.Filled.List, "Event list") }
                     IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
-                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") }
+                    IconButton(onClick = { showSettings = true }, modifier = Modifier.testTag("settingsButton")) { Icon(Icons.Default.Settings, "Settings") }
                 },
             )
         },
@@ -152,6 +153,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     }
                     ExtendedFloatingActionButton(
                         onClick = { vm.startPlanning() },
+                        modifier = Modifier.testTag("planRouteButton"),
                         icon = { Icon(Icons.Default.Place, null) },
                         text = { Text("Plan route") },
                     )

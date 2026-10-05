@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +67,7 @@ fun PlaceSheet(
         LazyColumn(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.testTag("placeSheet"),
         ) {
             if (planning) {
                 item { Text("Pick events for your route", style = MaterialTheme.typography.titleMedium) }
@@ -164,7 +166,7 @@ fun EventListSheet(
     val selected = state.selectedKeys
     val onRow = { m: MappedEvent -> if (planning) onToggle(m.event.key) else onPick(m) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.testTag("eventList")) {
             if (planning) {
                 item { SectionHeader("Tick events for your route (${selected.size}/${RoutePlanner.MAX_STOPS})") }
             }
@@ -216,7 +218,8 @@ private fun EventRow(
 ) {
     val alpha = if (dim) 0.6f else 1f
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().testTag("row-${event.title}").clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (checked != null) {
