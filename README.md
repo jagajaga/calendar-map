@@ -44,6 +44,32 @@ APKs for every other commit and pull request are in the run's **Artifacts**
 section under [Actions](../../actions). Artifacts download as a zip, and you
 must be signed in to GitHub to get them.
 
+## Project layout
+
+| Folder | What |
+| --- | --- |
+| `app/` | Android app (Kotlin, Jetpack Compose, osmdroid) |
+| `ios/` | iOS app (Swift, SwiftUI, MapKit, EventKit). The Xcode project is generated from `ios/project.yml` with XcodeGen |
+| `shared/` | Kotlin Multiplatform core used by both: route planner, free time, time ranges, geo helpers, OSRM client logic. Tests run on the JVM and the iOS simulator |
+| `store-listing/` | Google Play and App Store texts, privacy policy, graphics, checklists |
+
+## iOS
+
+CI (`.github/workflows/ios.yml`, macOS runner) builds `Shared.xcframework`,
+generates the Xcode project, and runs the Swift unit tests and a UI test in
+the simulator on every push. The UI test drives the app in demo mode and
+uploads screenshots as an artifact. Once App Store Connect secrets are set,
+every commit to `main` also goes to TestFlight. See
+[`store-listing/app-store.md`](store-listing/app-store.md).
+
+To build on a Mac:
+
+```sh
+./gradlew :shared:assembleSharedReleaseXCFramework
+brew install xcodegen && (cd ios && xcodegen generate)
+open ios/CalendarMap.xcodeproj
+```
+
 ## Google Play
 
 Store listing text, graphics, the privacy policy, Data safety answers and a

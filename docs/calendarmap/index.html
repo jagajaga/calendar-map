@@ -144,7 +144,7 @@
   </header>
 
   <div class="doc">
-    <p class="updated">Last updated: October 5, 2026</p>
+    <p class="updated">Last updated: October 5, 2026 · covers the Android and iPhone apps</p>
 
     <h2>module Privacy where</h2>
     <p>Calendar Map ("the app") is developed by Arseniy Seroka ("we", "us") and is <a href="https://github.com/jagajaga/calendar-map">open source</a>. It shows events from the calendars on your phone on a map. We run no servers and receive no data from the app. No accounts, no ads, no analytics, no crash reporting. To draw maps, find places and plan routes, the app sends a small amount of data directly from your phone to the services listed below.</p>
@@ -158,11 +158,11 @@
     <h2>sent over the internet ≔ what → whom</h2>
     <table>
       <tr><th>What</th><th>Sent to</th><th>When</th></tr>
-      <tr><td>An event's location text (an address or place name)</td><td>Your phone's built-in geocoding service (on most phones, Google)</td><td>The first time that location is placed on the map; the result is cached on your device</td></tr>
-      <tr><td>Which map area you are viewing (map tile requests) and your IP address</td><td>OpenStreetMap Foundation tile servers (<code>tile.openstreetmap.org</code>)</td><td>Whenever map tiles load</td></tr>
+      <tr><td>An event's location text (an address or place name)</td><td>The phone's geocoding service: on Android the built-in one (on most phones, Google); on iPhone, Apple</td><td>The first time that location is placed on the map; the result is cached on your device</td></tr>
+      <tr><td>Which map area you are viewing (map tile requests) and your IP address</td><td>Android: OpenStreetMap Foundation tile servers (<code>tile.openstreetmap.org</code>). iPhone: Apple Maps</td><td>Whenever map tiles load</td></tr>
       <tr><td>Coordinates of the events in a route, plus your location if the route starts from it</td><td>OpenStreetMap routing service run by FOSSGIS e.V. (<code>routing.openstreetmap.de</code>)</td><td>Only when you build a route</td></tr>
     </table>
-    <p>These services process the data to answer the request; their own policies apply: <a href="https://policies.google.com/privacy">Google</a>, <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation</a>, <a href="https://www.fossgis.de/datenschutzerklaerung/">FOSSGIS</a>. When you tap <strong>Open in Google Maps</strong> or <strong>Open in calendar</strong>, that event's place or route is handed to the app you open, and that app's policy applies. All connections use HTTPS.</p>
+    <p>These services process the data to answer the request; their own policies apply: <a href="https://policies.google.com/privacy">Google</a>, <a href="https://www.apple.com/legal/privacy/">Apple</a>, <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation</a>, <a href="https://www.fossgis.de/datenschutzerklaerung/">FOSSGIS</a>. When you tap <strong>Open in Google Maps</strong>, <strong>Apple Maps</strong> or <strong>Calendar</strong>, that event's place or route is handed to the app you open, and that app's policy applies. All connections use HTTPS.</p>
 
     <h2>stored on your device</h2>
     <ul>

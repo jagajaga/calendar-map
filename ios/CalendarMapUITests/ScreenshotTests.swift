@@ -15,23 +15,23 @@ final class ScreenshotTests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["planRouteButton"].waitForExistence(timeout: 20))
-        sleep(4) // let map tiles load
+        sleep(8) // let map tiles load and system banners go away
         shot(app, "01-map")
 
-        app.buttons["listButton"].tap()
-        XCTAssertTrue(app.buttons["doneButton"].waitForExistence(timeout: 5))
+        openList(app)
         shot(app, "02-list")
-        app.buttons["doneButton"].tap()
+        closeSheet(app)
 
         app.buttons["planRouteButton"].tap()
-        app.buttons["listButton"].tap()
+        XCTAssertTrue(app.buttons["buildRouteButton"].waitForExistence(timeout: 5))
+        openList(app)
         for title in ["Founders Coffee", "AI Demo Night", "Design Systems Meetup", "Open Source Hack Night"] {
             let row = app.buttons["row-\(title)"]
             XCTAssertTrue(row.waitForExistence(timeout: 5), "missing row \(title)")
             row.tap()
         }
         shot(app, "03-picking")
-        app.buttons["doneButton"].tap()
+        closeSheet(app)
 
         let build = app.buttons["buildRouteButton"]
         XCTAssertTrue(build.waitForExistence(timeout: 5))
@@ -49,6 +49,25 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["settingsButton"].tap()
         sleep(1)
         shot(app, "07-settings")
+    }
+
+    /** Sheets animate in and out; taps during the animation get dropped. */
+    private func openList(_ app: XCUIApplication) {
+        let done = app.buttons["doneButton"]
+        for _ in 0..<3 where !done.exists {
+            app.buttons["listButton"].tap()
+            _ = done.waitForExistence(timeout: 4)
+        }
+        XCTAssertTrue(done.exists, "event list didn't open")
+        sleep(1)
+    }
+
+    private func closeSheet(_ app: XCUIApplication) {
+        let done = app.buttons["doneButton"]
+        done.tap()
+        let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: done)
+        wait(for: [gone], timeout: 5)
+        sleep(1)
     }
 
     private func shot(_ app: XCUIApplication, _ name: String) {

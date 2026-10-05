@@ -1,6 +1,6 @@
 # Privacy Policy — Calendar Map
 
-**Last updated: October 5, 2026**
+**Last updated: October 5, 2026** (now also covers the iPhone app)
 
 Calendar Map ("the app") is developed by Arseniy Seroka ("we", "us"). It is
 open source: https://github.com/jagajaga/calendar-map
@@ -28,17 +28,18 @@ services listed below.
 
 | What | Sent to | When |
 | --- | --- | --- |
-| An event's location text (an address or place name) | Your phone's built-in geocoding service (on most phones, Google) | The first time the app places that location on the map; the result is cached on your device |
-| Which map area you are viewing (as map tile requests) and your IP address | OpenStreetMap Foundation tile servers (tile.openstreetmap.org) | Whenever map tiles are loaded |
+| An event's location text (an address or place name) | The phone's geocoding service: on Android, the built-in one (on most phones, Google); on iPhone, Apple | The first time the app places that location on the map; the result is cached on your device |
+| Which map area you are viewing (as map tile requests) and your IP address | On Android: OpenStreetMap Foundation tile servers (tile.openstreetmap.org). On iPhone: Apple Maps | Whenever map tiles are loaded |
 | Coordinates of the events in a route, plus your current location if the route starts from it | OpenStreetMap routing service run by FOSSGIS e.V. (routing.openstreetmap.de) | Only when you build a route |
 
 These services process the data to answer the request. Their own privacy
 policies apply:
 [Google](https://policies.google.com/privacy),
+[Apple](https://www.apple.com/legal/privacy/),
 [OpenStreetMap Foundation](https://osmfoundation.org/wiki/Privacy_Policy),
 [FOSSGIS](https://www.fossgis.de/datenschutzerklaerung/).
 
-When you tap **Open in Google Maps** or **Open in calendar**, the app hands
+When you tap **Open in Google Maps**, **Apple Maps** or **Calendar**, the app hands
 that event's place or route to the app you open. From then on, that app's
 privacy policy applies.
 
