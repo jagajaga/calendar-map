@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -68,7 +69,7 @@ fun EventMap(
 
     AndroidView(
         factory = { mapView },
-        modifier = modifier,
+        modifier = modifier.clipToBounds(),
         update = { map ->
             val overlayKey = Triple(places, myLocation, radiusKm)
             if (overlayKey != holder.lastOverlayKey) {

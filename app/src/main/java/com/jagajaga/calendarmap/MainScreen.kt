@@ -44,6 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -121,16 +124,25 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 return@Column
             }
 
-            RangeChips(
-                settings = state.settings,
-                onPreset = { p ->
-                    if (p == RangePreset.CUSTOM) showDatePicker = true
-                    else vm.updateSettings { it.copy(preset = p) }
-                },
-            )
-            StatusLine(state)
+            // osmdroid's MapView paints outside its bounds inside Compose, which hid
+            // this bar. Clip the map and raise the bar above it so either alone holds.
+            Column(
+                Modifier
+                    .zIndex(1f)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface),
+            ) {
+                RangeChips(
+                    settings = state.settings,
+                    onPreset = { p ->
+                        if (p == RangePreset.CUSTOM) showDatePicker = true
+                        else vm.updateSettings { it.copy(preset = p) }
+                    },
+                )
+                StatusLine(state)
+            }
 
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().clipToBounds()) {
                 EventMap(
                     places = state.places,
                     myLocation = state.myLocation,
