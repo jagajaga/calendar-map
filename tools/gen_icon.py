@@ -219,10 +219,22 @@ def render_store_assets(outdir):
     fg.save(outdir / "feature-graphic-1024x500.png")
 
 
+def render_ios_icon():
+    """iOS AppIcon: 1024x1024, opaque, full-bleed (iOS rounds the corners itself)."""
+    from PIL import Image
+
+    big = render_square(1536)
+    crop = 1536 * 18 // 108
+    out = ROOT / "ios/CalendarMap/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+    big.crop((crop, crop, 1536 - crop, 1536 - crop)).resize((1024, 1024), Image.LANCZOS).convert("RGB").save(out)
+
+
 if __name__ == "__main__":
     write_vector("ic_launcher_foreground.xml", vector_paths())
     write_vector("ic_launcher_monochrome.xml", monochrome_paths())
-    if len(sys.argv) > 1:
-        render_preview(sys.argv[1])
+    previews = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if previews:
+        render_preview(previews[0])
     if "--store" in sys.argv:
         render_store_assets(ROOT / "store-listing" / "graphics")
+        render_ios_icon()

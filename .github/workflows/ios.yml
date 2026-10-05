@@ -54,6 +54,7 @@ jobs:
         if: hashFiles('ios/project.yml') != ''
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild test \
             -project ios/CalendarMap.xcodeproj -scheme CalendarMap \
             -destination "id=$SIM_UDID" \
