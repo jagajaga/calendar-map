@@ -16,6 +16,9 @@ struct AppSettings: Equatable {
     /** Inclusive local dates for the custom range, as epoch days. */
     var customStartDay: Int64?
     var customEndDay: Int64?
+    /** Local times for the custom range, minutes after midnight; nil = whole days. */
+    var customStartMinute: Int?
+    var customEndMinute: Int?
     var showAllDay = true
     var areaMode: AreaMode = .visibleMap
     var travelMode: TravelMode = .walk
@@ -28,6 +31,8 @@ struct AppSettings: Equatable {
             preset: preset,
             customStartDay: customStartDay.map { KotlinLong(value: $0) },
             customEndDay: customEndDay.map { KotlinLong(value: $0) },
+            customStartMinute: customStartMinute.map { KotlinInt(value: Int32($0)) },
+            customEndMinute: customEndMinute.map { KotlinInt(value: Int32($0)) },
             nowMs: now.ms,
             zoneId: zone.identifier
         )
@@ -39,6 +44,7 @@ struct AppSettings: Equatable {
     private enum Key {
         static let radius = "radius_km", calendars = "calendar_ids", preset = "range_preset"
         static let start = "custom_start_day", end = "custom_end_day", allDay = "show_all_day"
+        static let startMin = "custom_start_minute", endMin = "custom_end_minute"
         static let area = "area_mode", travel = "travel_mode", stay = "stay_minutes", fromMe = "route_from_my_location"
     }
 
@@ -49,6 +55,8 @@ struct AppSettings: Equatable {
         if let p = d.string(forKey: Key.preset), let v = presets.first(where: { $0.name == p }) { s.preset = v }
         if d.object(forKey: Key.start) != nil { s.customStartDay = Int64(d.integer(forKey: Key.start)) }
         if d.object(forKey: Key.end) != nil { s.customEndDay = Int64(d.integer(forKey: Key.end)) }
+        if d.object(forKey: Key.startMin) != nil { s.customStartMinute = d.integer(forKey: Key.startMin) }
+        if d.object(forKey: Key.endMin) != nil { s.customEndMinute = d.integer(forKey: Key.endMin) }
         if d.object(forKey: Key.allDay) != nil { s.showAllDay = d.bool(forKey: Key.allDay) }
         if let a = d.string(forKey: Key.area), let v = areaModes.first(where: { $0.name == a }) { s.areaMode = v }
         if let t = d.string(forKey: Key.travel), let v = travelModes.first(where: { $0.name == t }) { s.travelMode = v }
@@ -66,6 +74,8 @@ struct AppSettings: Equatable {
         d.set(preset.name, forKey: Key.preset)
         if let v = customStartDay { d.set(Int(v), forKey: Key.start) } else { d.removeObject(forKey: Key.start) }
         if let v = customEndDay { d.set(Int(v), forKey: Key.end) } else { d.removeObject(forKey: Key.end) }
+        if let v = customStartMinute { d.set(v, forKey: Key.startMin) } else { d.removeObject(forKey: Key.startMin) }
+        if let v = customEndMinute { d.set(v, forKey: Key.endMin) } else { d.removeObject(forKey: Key.endMin) }
         d.set(showAllDay, forKey: Key.allDay)
         d.set(areaMode.name, forKey: Key.area)
         d.set(travelMode.name, forKey: Key.travel)

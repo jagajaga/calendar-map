@@ -15,8 +15,15 @@ class LogicTest {
     @Test fun timeWindowUsesSharedRules() {
         val zone = ZoneId.of("Europe/Berlin")
         val now = ZonedDateTime.of(2026, 10, 5, 13, 30, 0, 0, zone)
-        val (s, e) = AppSettings(preset = RangePreset.TODAY).timeWindow(now.toInstant().toEpochMilli(), zone.id)
-        assertEquals(LocalDate.of(2026, 10, 5).atStartOfDay(zone).toInstant().toEpochMilli(), s)
-        assertEquals(LocalDate.of(2026, 10, 6).atStartOfDay(zone).toInstant().toEpochMilli(), e)
+        val (s, e) = AppSettings(preset = RangePreset.TOMORROW).timeWindow(now.toInstant().toEpochMilli(), zone.id)
+        assertEquals(LocalDate.of(2026, 10, 6).atStartOfDay(zone).toInstant().toEpochMilli(), s)
+        assertEquals(LocalDate.of(2026, 10, 7).atStartOfDay(zone).toInstant().toEpochMilli(), e)
+    }
+
+    @Test fun pastEventsAreNotShownToday() {
+        val zone = ZoneId.of("Europe/Berlin")
+        val now = ZonedDateTime.of(2026, 10, 5, 13, 30, 0, 0, zone).toInstant().toEpochMilli()
+        val (s, _) = AppSettings(preset = RangePreset.TODAY).timeWindow(now, zone.id)
+        assertEquals(now, s)
     }
 }

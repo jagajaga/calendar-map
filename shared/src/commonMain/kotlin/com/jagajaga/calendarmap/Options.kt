@@ -3,9 +3,12 @@ package com.jagajaga.calendarmap
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 enum class RangePreset(val label: String) {
@@ -35,14 +38,21 @@ data class TimeWindow(val start: Long, val end: Long)
 
 object TimeWindows {
     /**
-     * The window a time-range preset asks for.
+     * The window a time-range preset asks for. Never starts before [nowMs]:
+     * events that have already ended are never shown, ones in progress are.
+     *
      * @param customStartDay inclusive local date for [RangePreset.CUSTOM], as epoch days.
+     * @param customStartMinute local time on the start day, minutes after midnight (null = 00:00).
+     * @param customEndMinute local time on the end day where the range stops
+     *   (null = the end of that day).
      * @param zoneId IANA zone, e.g. "Europe/Berlin".
      */
     fun compute(
         preset: RangePreset,
         customStartDay: Long?,
         customEndDay: Long?,
+        customStartMinute: Int?,
+        customEndMinute: Int?,
         nowMs: Long,
         zoneId: String,
     ): TimeWindow {
@@ -51,8 +61,11 @@ object TimeWindows {
         val today = now.toLocalDateTime(tz).date
         fun dayStart(d: LocalDate) = d.atStartOfDayIn(tz).toEpochMilliseconds()
         fun day(d: LocalDate, plus: Int) = d.plus(plus, DateTimeUnit.DAY)
+        fun at(d: LocalDate, minute: Int) =
+            LocalDateTime(d, LocalTime(minute.coerceIn(0, 1439) / 60, minute.coerceIn(0, 1439) % 60))
+                .toInstant(tz).toEpochMilliseconds()
         fun nowPlusDays(n: Int) = now.plus(n, DateTimeUnit.DAY, tz).toEpochMilliseconds()
-        return when (preset) {
+        val raw = when (preset) {
             RangePreset.TODAY -> TimeWindow(dayStart(today), dayStart(day(today, 1)))
             RangePreset.TOMORROW -> TimeWindow(dayStart(day(today, 1)), dayStart(day(today, 2)))
             RangePreset.WEEK -> TimeWindow(nowMs, nowPlusDays(7))
@@ -60,9 +73,14 @@ object TimeWindows {
             RangePreset.CUSTOM -> {
                 val s = customStartDay?.let { LocalDate.fromEpochDays(it.toInt()) } ?: today
                 val e = customEndDay?.let { LocalDate.fromEpochDays(it.toInt()) } ?: s
-                TimeWindow(dayStart(s), dayStart(day(e, 1)))
+                TimeWindow(
+                    customStartMinute?.let { at(s, it) } ?: dayStart(s),
+                    customEndMinute?.let { at(e, it) } ?: dayStart(day(e, 1)),
+                )
             }
         }
+        val start = maxOf(raw.start, nowMs)
+        return TimeWindow(start, maxOf(raw.end, start))
     }
 }
 

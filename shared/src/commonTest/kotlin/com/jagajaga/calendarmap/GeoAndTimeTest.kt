@@ -16,10 +16,14 @@ class GeoAndTimeTest {
     private val tz = TimeZone.of(zoneId)
     private val now = LocalDateTime(2026, 10, 5, 13, 30).toInstant(tz).toEpochMilliseconds()
     private fun dayStart(y: Int, m: Int, d: Int) = LocalDate(y, m, d).atStartOfDayIn(tz).toEpochMilliseconds()
-    private fun window(p: RangePreset, s: Long? = null, e: Long? = null) = TimeWindows.compute(p, s, e, now, zoneId)
+    private fun at(d: Int, h: Int, m: Int = 0) = LocalDateTime(2026, 10, d, h, m).toInstant(tz).toEpochMilliseconds()
+    private fun epochDay(d: Int) = LocalDate(2026, 10, d).toEpochDays().toLong()
+    private fun window(
+        p: RangePreset, s: Long? = null, e: Long? = null, sMin: Int? = null, eMin: Int? = null, nowMs: Long = now,
+    ) = TimeWindows.compute(p, s, e, sMin, eMin, nowMs, zoneId)
 
-    @Test fun todayCoversWholeLocalDay() =
-        assertEquals(TimeWindow(dayStart(2026, 10, 5), dayStart(2026, 10, 6)), window(RangePreset.TODAY))
+    @Test fun todayRunsFromNowToMidnight() =
+        assertEquals(TimeWindow(now, dayStart(2026, 10, 6)), window(RangePreset.TODAY))
 
     @Test fun tomorrowCoversNextDay() =
         assertEquals(TimeWindow(dayStart(2026, 10, 6), dayStart(2026, 10, 7)), window(RangePreset.TOMORROW))
@@ -35,10 +39,28 @@ class GeoAndTimeTest {
         assertEquals(later, window(RangePreset.MONTH).end)
     }
 
-    @Test fun customRangeIncludesEndDay() {
-        val s = LocalDate(2026, 10, 10).toEpochDays().toLong()
-        val e = LocalDate(2026, 10, 12).toEpochDays().toLong()
-        assertEquals(TimeWindow(dayStart(2026, 10, 10), dayStart(2026, 10, 13)), window(RangePreset.CUSTOM, s, e))
+    @Test fun customRangeIncludesEndDay() =
+        assertEquals(
+            TimeWindow(dayStart(2026, 10, 10), dayStart(2026, 10, 13)),
+            window(RangePreset.CUSTOM, epochDay(10), epochDay(12)),
+        )
+
+    @Test fun customRangeWithTimes() =
+        assertEquals(
+            TimeWindow(at(7, 18), at(8, 2, 30)),
+            window(RangePreset.CUSTOM, epochDay(7), epochDay(8), sMin = 18 * 60, eMin = 2 * 60 + 30),
+        )
+
+    @Test fun customRangeAlreadyUnderwayStartsNow() =
+        assertEquals(
+            TimeWindow(now, at(5, 22)),
+            window(RangePreset.CUSTOM, epochDay(5), epochDay(5), sMin = 9 * 60, eMin = 22 * 60),
+        )
+
+    @Test fun pastRangeIsEmpty() {
+        val w = window(RangePreset.CUSTOM, epochDay(1), epochDay(2))
+        assertEquals(w.start, w.end)
+        assertEquals(now, w.start)
     }
 
     @Test fun parsesCoordinateLocations() {

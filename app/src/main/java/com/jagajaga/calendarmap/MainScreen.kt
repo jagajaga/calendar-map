@@ -37,6 +37,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -260,9 +264,14 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         CustomRangeDialog(
             settings = state.settings,
             onDismiss = { showDatePicker = false },
-            onConfirm = { start, end ->
+            onConfirm = { start, end, startMin, endMin ->
                 showDatePicker = false
-                vm.updateSettings { it.copy(preset = RangePreset.CUSTOM, customStartDay = start, customEndDay = end) }
+                vm.updateSettings {
+                    it.copy(
+                        preset = RangePreset.CUSTOM, customStartDay = start, customEndDay = end,
+                        customStartMinute = startMin, customEndMinute = endMin,
+                    )
+                }
             },
         )
     }
@@ -318,9 +327,10 @@ private fun RangeChips(settings: AppSettings, onPreset: (RangePreset) -> Unit) {
     ) {
         items(RangePreset.entries) { p ->
             val label = if (p == RangePreset.CUSTOM && settings.preset == p && settings.customStartDay != null) {
-                val s = TimeFormat.day(settings.customStartDay)
-                val e = settings.customEndDay?.let(TimeFormat::day)
-                if (e == null || e == s) s else "$s – $e"
+                TimeFormat.customRange(
+                    settings.customStartDay, settings.customEndDay ?: settings.customStartDay,
+                    settings.customStartMinute, settings.customEndMinute,
+                )
             } else p.label
             FilterChip(selected = settings.preset == p, onClick = { onPreset(p) }, label = { Text(label) })
         }
@@ -358,32 +368,95 @@ private fun StatusLine(state: UiState) {
 private fun CustomRangeDialog(
     settings: AppSettings,
     onDismiss: () -> Unit,
-    onConfirm: (Long, Long) -> Unit,
+    onConfirm: (startDay: Long, endDay: Long, startMinute: Int?, endMinute: Int?) -> Unit,
 ) {
     // The picker works in UTC-midnight millis; convert to/from local epoch days.
     fun dayToUtcMillis(d: Long) = LocalDate.ofEpochDay(d).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     fun utcMillisToDay(ms: Long) = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
 
+    // Step 1: dates. Step 2: times on those dates.
+    var days by remember { mutableStateOf<Pair<Long, Long>?>(null) }
     val pickerState = rememberDateRangePickerState(
         initialSelectedStartDateMillis = settings.customStartDay?.let(::dayToUtcMillis),
         initialSelectedEndDateMillis = settings.customEndDay?.let(::dayToUtcMillis),
     )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                enabled = pickerState.selectedStartDateMillis != null,
-                onClick = {
-                    val s = utcMillisToDay(pickerState.selectedStartDateMillis!!)
-                    val e = pickerState.selectedEndDateMillis?.let(::utcMillisToDay) ?: s
-                    onConfirm(s, e)
-                },
-            ) { Text("Apply") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    ) {
-        DateRangePicker(state = pickerState, modifier = Modifier.weight(1f), title = {
-            Text("Show events between", Modifier.padding(start = 24.dp, top = 16.dp))
-        })
+    val picked = days
+    if (picked == null) {
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(
+                    enabled = pickerState.selectedStartDateMillis != null,
+                    onClick = {
+                        val s = utcMillisToDay(pickerState.selectedStartDateMillis!!)
+                        val e = pickerState.selectedEndDateMillis?.let(::utcMillisToDay) ?: s
+                        days = s to e
+                    },
+                ) { Text("Next") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        ) {
+            DateRangePicker(state = pickerState, modifier = Modifier.weight(1f), title = {
+                Text("Show events between", Modifier.padding(start = 24.dp, top = 16.dp))
+            })
+        }
+    } else {
+        TimeRangeDialog(
+            startDay = picked.first,
+            endDay = picked.second,
+            initialStart = settings.customStartMinute,
+            initialEnd = settings.customEndMinute,
+            onBack = { days = null },
+            onConfirm = { s, e -> onConfirm(picked.first, picked.second, s, e) },
+        )
     }
+}
+
+@Composable
+private fun TimeRangeDialog(
+    startDay: Long,
+    endDay: Long,
+    initialStart: Int?,
+    initialEnd: Int?,
+    onBack: () -> Unit,
+    onConfirm: (startMinute: Int?, endMinute: Int?) -> Unit,
+) {
+    val context = LocalContext.current
+    val is24h = android.text.format.DateFormat.is24HourFormat(context)
+    val start = rememberTimePickerState(initialHour = (initialStart ?: 0) / 60, initialMinute = (initialStart ?: 0) % 60, is24Hour = is24h)
+    val end = rememberTimePickerState(
+        initialHour = (initialEnd ?: (23 * 60 + 59)) / 60, initialMinute = (initialEnd ?: (23 * 60 + 59)) % 60, is24Hour = is24h,
+    )
+    val startMin = start.hour * 60 + start.minute
+    val endMin = end.hour * 60 + end.minute
+    val valid = endDay > startDay || endMin > startMin
+    AlertDialog(
+        onDismissRequest = onBack,
+        title = { Text("Time range") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("From ${TimeFormat.day(startDay)}", style = MaterialTheme.typography.labelLarge)
+                TimeInput(state = start)
+                Text("Until ${TimeFormat.day(endDay)}", style = MaterialTheme.typography.labelLarge)
+                TimeInput(state = end)
+                if (!valid) {
+                    Text("The end must be after the start.", color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = {
+                // 00:00 → 23:59 means whole days: store as "no times".
+                val whole = startMin == 0 && endMin == 23 * 60 + 59
+                onConfirm(if (whole) null else startMin, if (whole) null else endMin)
+            }) { Text("Apply") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onBack) { Text("Back") }
+                TextButton(onClick = { onConfirm(null, null) }) { Text("Whole days") }
+            }
+        },
+    )
 }

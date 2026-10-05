@@ -11,6 +11,9 @@ data class AppSettings(
     /** Inclusive local dates for [RangePreset.CUSTOM], stored as epoch days. */
     val customStartDay: Long? = null,
     val customEndDay: Long? = null,
+    /** Local times for the custom range, minutes after midnight; null = whole days. */
+    val customStartMinute: Int? = null,
+    val customEndMinute: Int? = null,
     val showAllDay: Boolean = true,
     val areaMode: AreaMode = AreaMode.VISIBLE_MAP,
     val travelMode: TravelMode = TravelMode.WALK,
@@ -28,7 +31,7 @@ fun AppSettings.timeWindow(
     nowMs: Long = System.currentTimeMillis(),
     zoneId: String = systemZone.id,
 ): Pair<Long, Long> =
-    TimeWindows.compute(preset, customStartDay, customEndDay, nowMs, zoneId).let { it.start to it.end }
+    TimeWindows.compute(preset, customStartDay, customEndDay, customStartMinute, customEndMinute, nowMs, zoneId).let { it.start to it.end }
 
 class SettingsStore(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -41,6 +44,8 @@ class SettingsStore(context: Context) {
             ?.let { runCatching { RangePreset.valueOf(it) }.getOrNull() } ?: RangePreset.WEEK,
         customStartDay = prefs.getLong(K_START, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE },
         customEndDay = prefs.getLong(K_END, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE },
+        customStartMinute = prefs.getInt(K_START_MIN, -1).takeIf { it >= 0 },
+        customEndMinute = prefs.getInt(K_END_MIN, -1).takeIf { it >= 0 },
         showAllDay = prefs.getBoolean(K_ALL_DAY, true),
         areaMode = enumPref(K_AREA, AreaMode.VISIBLE_MAP),
         travelMode = enumPref(K_TRAVEL, TravelMode.WALK),
@@ -59,6 +64,8 @@ class SettingsStore(context: Context) {
             putString(K_PRESET, s.preset.name)
             if (s.customStartDay == null) remove(K_START) else putLong(K_START, s.customStartDay)
             if (s.customEndDay == null) remove(K_END) else putLong(K_END, s.customEndDay)
+            putInt(K_START_MIN, s.customStartMinute ?: -1)
+            putInt(K_END_MIN, s.customEndMinute ?: -1)
             putBoolean(K_ALL_DAY, s.showAllDay)
             putString(K_AREA, s.areaMode.name)
             putString(K_TRAVEL, s.travelMode.name)
@@ -73,6 +80,8 @@ class SettingsStore(context: Context) {
         const val K_PRESET = "range_preset"
         const val K_START = "custom_start_day"
         const val K_END = "custom_end_day"
+        const val K_START_MIN = "custom_start_minute"
+        const val K_END_MIN = "custom_end_minute"
         const val K_ALL_DAY = "show_all_day"
         const val K_AREA = "area_mode"
         const val K_TRAVEL = "travel_mode"

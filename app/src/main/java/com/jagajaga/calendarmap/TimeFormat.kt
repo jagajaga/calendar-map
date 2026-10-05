@@ -72,4 +72,17 @@ object TimeFormat {
             else -> d.format(longDay)
         }
     }
+
+    /** "Tue 7 Oct", "Tue 7 Oct – Thu 9 Oct", or with times "Tue 7 Oct 18:00 – Wed 8 Oct 02:00". */
+    fun customRange(startDay: Long, endDay: Long, startMinute: Int?, endMinute: Int?): String {
+        if (startMinute == null && endMinute == null) {
+            val s = day(startDay)
+            val e = day(endDay)
+            return if (s == e) s else "$s – $e"
+        }
+        fun at(d: Long, m: Int?) = java.time.LocalDate.ofEpochDay(d).atTime((m ?: 0) / 60, (m ?: 0) % 60).format(time)
+        val s = "${day(startDay)} ${at(startDay, startMinute)}"
+        val endTime = if (endMinute == null) "24:00" else at(endDay, endMinute)
+        return if (startDay == endDay) "$s–$endTime" else "$s – ${day(endDay)} $endTime"
+    }
 }

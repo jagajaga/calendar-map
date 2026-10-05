@@ -71,4 +71,19 @@ enum Fmt {
     }
 
     static func day(_ epochDay: Int64) -> String { shortDay.string(from: EpochDay.date(epochDay)) }
+
+    /** "Tue 7 Oct", "Tue 7 Oct – Thu 9 Oct", or with times "Tue 7 Oct 18:00 – Wed 8 Oct 02:00". */
+    static func customRange(startDay: Int64, endDay: Int64, startMinute: Int?, endMinute: Int?) -> String {
+        if startMinute == nil && endMinute == nil {
+            let s = day(startDay), e = day(endDay)
+            return s == e ? s : "\(s) – \(e)"
+        }
+        func at(_ d: Int64, _ m: Int?) -> String {
+            let date = EpochDay.date(d).addingTimeInterval(TimeInterval((m ?? 0) * 60))
+            return time.string(from: date)
+        }
+        let s = "\(day(startDay)) \(at(startDay, startMinute))"
+        let endTime = endMinute == nil ? "24:00" : at(endDay, endMinute)
+        return startDay == endDay ? "\(s)–\(endTime)" : "\(s) – \(day(endDay)) \(endTime)"
+    }
 }

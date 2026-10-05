@@ -263,10 +263,10 @@ struct RangeChips: View {
     }
 
     private func label(_ p: RangePreset) -> String {
-        guard p == .custom, model.settings.preset == .custom, let s = model.settings.customStartDay else { return p.label }
-        let start = Fmt.day(s)
-        let end = model.settings.customEndDay.map(Fmt.day)
-        return (end == nil || end == start) ? start : "\(start) – \(end!)"
+        let st = model.settings
+        guard p == .custom, st.preset == .custom, let s = st.customStartDay else { return p.label }
+        return Fmt.customRange(startDay: s, endDay: st.customEndDay ?? s,
+                               startMinute: st.customStartMinute, endMinute: st.customEndMinute)
     }
 }
 

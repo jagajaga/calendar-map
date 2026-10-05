@@ -323,36 +323,55 @@ enum RadiusScale {
 struct CustomRangeSheet: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @State private var start = Date()
-    @State private var end = Date()
+    @State private var start = Calendar.current.startOfDay(for: Date())
+    @State private var end = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86_340)
+    @State private var withTimes = false
 
     var body: some View {
         NavigationStack {
             Form {
-                DatePicker("From", selection: $start, displayedComponents: .date)
-                DatePicker("To", selection: $end, in: start..., displayedComponents: .date)
+                Toggle("Choose times", isOn: $withTimes)
+                DatePicker("From", selection: $start, displayedComponents: withTimes ? [.date, .hourAndMinute] : [.date])
+                DatePicker("Until", selection: $end, in: start..., displayedComponents: withTimes ? [.date, .hourAndMinute] : [.date])
+                if withTimes && end <= start {
+                    Text("The end must be after the start.").font(.caption).foregroundStyle(.red)
+                }
             }
             .navigationTitle("Show events between")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Apply") {
-                        var s = model.settings
-                        s.preset = .custom
-                        s.customStartDay = EpochDay.of(start)
-                        s.customEndDay = EpochDay.of(max(start, end))
-                        model.settings = s
-                        dismiss()
-                    }
+                    Button("Apply") { apply() }.disabled(withTimes && end <= start)
                 }
             }
-            .onAppear {
-                if let s = model.settings.customStartDay { start = EpochDay.date(s) }
-                if let e = model.settings.customEndDay { end = EpochDay.date(e) }
-            }
+            .onAppear(perform: load)
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+
+    private func minuteOfDay(_ d: Date) -> Int {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    }
+
+    private func load() {
+        let st = model.settings
+        guard let s = st.customStartDay else { return }
+        withTimes = st.customStartMinute != nil || st.customEndMinute != nil
+        start = EpochDay.date(s).addingTimeInterval(TimeInterval((st.customStartMinute ?? 0) * 60))
+        end = EpochDay.date(st.customEndDay ?? s).addingTimeInterval(TimeInterval((st.customEndMinute ?? 1439) * 60))
+    }
+
+    private func apply() {
+        var s = model.settings
+        s.preset = .custom
+        s.customStartDay = EpochDay.of(start)
+        s.customEndDay = EpochDay.of(max(start, end))
+        s.customStartMinute = withTimes ? minuteOfDay(start) : nil
+        s.customEndMinute = withTimes ? minuteOfDay(end) : nil
+        model.settings = s
+        dismiss()
     }
 }
 
