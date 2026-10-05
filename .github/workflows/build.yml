@@ -85,3 +85,44 @@ jobs:
           printf '\n---\nCommit: %s\n' "$GITHUB_SHA" >> notes.md
           gh release create "build-${{ github.run_number }}" dist/* \
             --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest
+
+      # Every commit to main goes to the Play "internal testing" track once the
+      # PLAY_SERVICE_ACCOUNT_JSON secret exists (see store-listing/play-console.md).
+      - name: Check Google Play secret
+        id: play
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$JSON" ]; then
+            echo "::notice::PLAY_SERVICE_ACCOUNT_JSON not set; skipping Google Play upload."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Google Play (internal testing)
+        id: play_upload
+        if: steps.play.outputs.ok == 'true'
+        continue-on-error: true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: me.jagajaga.calendarmap
+          releaseFiles: dist/*.aab
+          track: internal
+          status: completed
+          releaseName: ${{ env.VERSION_NAME }}
+
+      # Until the app's first release is rolled out by hand in Play Console,
+      # Google only accepts draft releases.
+      - name: Upload to Google Play as draft (app not yet released)
+        if: steps.play.outputs.ok == 'true' && steps.play_upload.outcome == 'failure'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: me.jagajaga.calendarmap
+          releaseFiles: dist/*.aab
+          track: internal
+          status: draft
+          releaseName: ${{ env.VERSION_NAME }}

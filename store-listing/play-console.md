@@ -31,11 +31,26 @@ first upload.
 - `versionCode` is the CI run number, so it always goes up.
 - Targets API 36 (Android 16), which Play requires for new apps since
   31 Aug 2026.
-- Later uploads can be automated: create a Google Cloud service account with
-  release permissions in Console (Users and permissions), save its JSON key
-  as the repository secret `PLAY_SERVICE_ACCOUNT_JSON`, then run the
-  **Publish to Google Play** workflow (Actions tab), picking a release and
-  a track. The very first upload must be manual.
+- **Automatic uploads.** Once the secret below exists, every commit to
+  `main` is uploaded to the **internal testing** track. Until the first
+  release has been rolled out by hand, uploads arrive as drafts.
+  1. Google Cloud Console (the project where *Google Play Android
+     Developer API* is enabled) → IAM & Admin → Service Accounts → Create
+     service account (e.g. `calendar-map-ci`). It needs no Cloud roles.
+  2. Open the service account → Keys → Add key → Create new key → JSON.
+     This downloads the key file.
+  3. Play Console → Users and permissions → Invite new users → enter the
+     service account's email (`…@….iam.gserviceaccount.com`) → App
+     permissions → Calendar Map → tick **Release to testing tracks**, plus
+     **Release apps to production** if CI should also be able to do that
+     later → Invite user.
+  4. Save the JSON file's full contents as the repository secret
+     `PLAY_SERVICE_ACCOUNT_JSON`.
+  5. Testing → Internal testing → Testers: create an email list with the
+     testers' Google accounts and share the opt-in link with them. Testers
+     install from Play and get each new build as an update.
+- The manual **Publish to Google Play** workflow (Actions tab) can still
+  push any release to another track (alpha, beta, production).
 
 ## 3. Store listing (Grow → Store presence → Main store listing)
 

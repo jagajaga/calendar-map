@@ -53,33 +53,6 @@ must be signed in to GitHub to get them.
 | `shared/` | Kotlin Multiplatform core used by both: route planner, free time, time ranges, geo helpers, OSRM client logic. Tests run on the JVM and the iOS simulator |
 | `store-listing/` | Google Play and App Store texts, privacy policy, graphics, checklists |
 
-## iOS
-
-CI (`.github/workflows/ios.yml`, macOS runner) builds `Shared.xcframework`,
-generates the Xcode project, and runs the Swift unit tests and a UI test in
-the simulator on every push. The UI test drives the app in demo mode and
-uploads screenshots as an artifact. Once App Store Connect secrets are set,
-every commit to `main` also goes to TestFlight. See
-[`store-listing/app-store.md`](store-listing/app-store.md).
-
-To build on a Mac:
-
-```sh
-./gradlew :shared:assembleSharedReleaseXCFramework
-brew install xcodegen && (cd ios && xcodegen generate)
-open ios/CalendarMap.xcodeproj
-```
-
-## Google Play
-
-Store listing text, graphics, the privacy policy, Data safety answers and a
-submission checklist are in [`store-listing/`](store-listing/). Start with
-[`store-listing/play-console.md`](store-listing/play-console.md). The
-privacy policy is published at https://jagajaga.me/calendarmap/ (source:
-`docs/calendarmap/index.html`). Each release has an `.aab` for Play next to
-the `.apk`. Later uploads can go through the manual **Publish to Google
-Play** workflow.
-
 ## Build locally
 
 Requires JDK 17 and the Android SDK (platform 36).
@@ -90,17 +63,3 @@ Requires JDK 17 and the Android SDK (platform 36).
 
 Without the signing environment variables, local release builds are signed
 with your debug key.
-
-## CI signing
-
-`.github/workflows/build.yml` reads these repository secrets:
-
-| Secret | Meaning |
-| --- | --- |
-| `KEYSTORE_BASE64` | base64 of the release `.jks` |
-| `KEYSTORE_PASSWORD` | keystore password |
-| `KEY_ALIAS` | key alias |
-| `KEY_PASSWORD` | key password |
-
-If the secrets are missing (for example, in pull requests from forks), the
-build falls back to a debug key, and that APK won't install over a release build.
