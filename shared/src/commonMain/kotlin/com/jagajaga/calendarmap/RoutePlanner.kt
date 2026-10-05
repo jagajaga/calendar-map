@@ -150,16 +150,6 @@ object RoutePlanner {
                 else -> 0L
             }
         }
-        // Forward pass: earliest arrival at each stop.
-        val arrive = LongArray(order.size)
-        val stayFrom = LongArray(order.size)
-        var t = now
-        for (k in order.indices) {
-            val s = stops[order[k]]
-            arrive[k] = if (k == 0 && !hasStart) s.begin else t + legs[k]
-            stayFrom[k] = maxOf(arrive[k], s.begin)
-            t = stayFrom[k] + required[order[k]]
-        }
         // Backward pass: latest you may leave each stop and still make the rest.
         val leaveBy = LongArray(order.size)
         for (k in order.indices.reversed()) {
@@ -176,6 +166,16 @@ object RoutePlanner {
             maxOf(now, minOf(firstStop.begin, latestStayStart) - legs[0])
         } else null
 
+        // Forward pass: when you get to each stop, setting off at departAt (or now).
+        val arrive = LongArray(order.size)
+        val stayFrom = LongArray(order.size)
+        var t = departAt ?: now
+        for (k in order.indices) {
+            val s = stops[order[k]]
+            arrive[k] = if (k == 0 && !hasStart) s.begin else t + legs[k]
+            stayFrom[k] = maxOf(arrive[k], s.begin)
+            t = stayFrom[k] + required[order[k]]
+        }
         val visits = order.indices.map { k -> PlanVisit(order[k], arrive[k], stayFrom[k], leaveBy[k], legs[k]) }
 
         // Free windows: from when one event ends until you must set off to arrive

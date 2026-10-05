@@ -64,7 +64,8 @@ class RoutePlannerTest {
         val m = matrix(row(0, 99), row(25, 0))
         val plan = RoutePlanner.plan(stops, m, hasStart = true, minStayMs = null, now = 0)
         assertEquals(3 * hour - 25 * min, plan.departAt)
-        assertEquals(25 * min, plan.visits[0].arrive)
+        // Arrival follows from that departure, not from "now".
+        assertEquals(3 * hour, plan.visits[0].arrive)
     }
 
     @Test fun tenStopsSolveQuickly() {
