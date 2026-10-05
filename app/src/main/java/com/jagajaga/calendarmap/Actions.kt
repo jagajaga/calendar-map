@@ -21,6 +21,33 @@ object Actions {
         }
     }
 
+    /** Opens the whole route in Google Maps; origin omitted = "from my location". */
+    fun openRouteInGoogleMaps(context: Context, route: RouteResult) {
+        val stops = route.plan.visits.map { route.events[it.stop] }
+        if (stops.isEmpty()) return
+        fun place(m: MappedEvent) = m.event.location.ifBlank { "${m.point.lat},${m.point.lon}" }
+        val b = Uri.parse("https://www.google.com/maps/dir/").buildUpon()
+            .appendQueryParameter("api", "1")
+            .appendQueryParameter("travelmode", route.mode.googleMode)
+        val rest = if (route.start == null) {
+            b.appendQueryParameter("origin", place(stops.first()))
+            stops.drop(1)
+        } else stops
+        if (rest.isEmpty()) {
+            b.appendQueryParameter("destination", place(stops.first()))
+        } else {
+            b.appendQueryParameter("destination", place(rest.last()))
+            val via = rest.dropLast(1)
+            if (via.isNotEmpty()) b.appendQueryParameter("waypoints", via.joinToString("|") { place(it) })
+        }
+        val intent = Intent(Intent.ACTION_VIEW, b.build())
+        try {
+            context.startActivity(Intent(intent).setPackage("com.google.android.apps.maps"))
+        } catch (e: ActivityNotFoundException) {
+            launch(context, intent)
+        }
+    }
+
     fun openInCalendar(context: Context, event: CalEvent) {
         val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.eventId)
         launch(

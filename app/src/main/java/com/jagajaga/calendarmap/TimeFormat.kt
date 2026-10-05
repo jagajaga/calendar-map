@@ -50,4 +50,22 @@ object TimeFormat {
         else endDate(e).let { "${it.format(longDay)}, ${it.format(time)}" }
 
     fun day(epochDay: Long): String = java.time.LocalDate.ofEpochDay(epochDay).format(shortDay)
+
+    /** Local clock time, with the day added when it isn't today. */
+    fun clock(ms: Long): String {
+        val t = Instant.ofEpochMilli(ms).atZone(systemZone)
+        val today = java.time.LocalDate.now(systemZone)
+        return if (t.toLocalDate() == today) t.format(time) else "${t.format(shortDay)} ${t.format(time)}"
+    }
+
+    fun duration(ms: Long): String {
+        val totalMin = ((ms + 30_000) / 60_000).coerceAtLeast(0)
+        val h = totalMin / 60
+        val m = totalMin % 60
+        return when {
+            h == 0L -> "$m min"
+            m == 0L -> "$h h"
+            else -> "$h h $m min"
+        }
+    }
 }

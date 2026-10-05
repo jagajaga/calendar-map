@@ -13,6 +13,14 @@ enum class RangePreset(val label: String) {
     CUSTOM("Custom"),
 }
 
+enum class AreaMode(val label: String) {
+    VISIBLE_MAP("Visible map area"),
+    RADIUS("Within a radius of me"),
+}
+
+/** Minimum time to spend at each event when planning a route; null = the whole event. */
+val STAY_OPTIONS: List<Int?> = listOf(15, 30, 60, null)
+
 data class AppSettings(
     val radiusKm: Int = DEFAULT_RADIUS_KM,
     /** `null` means "all calendars", including ones added later. */
@@ -22,6 +30,11 @@ data class AppSettings(
     val customStartDay: Long? = null,
     val customEndDay: Long? = null,
     val showAllDay: Boolean = true,
+    val areaMode: AreaMode = AreaMode.VISIBLE_MAP,
+    val travelMode: TravelMode = TravelMode.WALK,
+    /** Minutes; null = stay for the whole event. */
+    val stayMinutes: Int? = 30,
+    val routeFromMyLocation: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_RADIUS_KM = 50
@@ -60,7 +73,14 @@ class SettingsStore(context: Context) {
         customStartDay = prefs.getLong(K_START, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE },
         customEndDay = prefs.getLong(K_END, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE },
         showAllDay = prefs.getBoolean(K_ALL_DAY, true),
+        areaMode = enumPref(K_AREA, AreaMode.VISIBLE_MAP),
+        travelMode = enumPref(K_TRAVEL, TravelMode.WALK),
+        stayMinutes = prefs.getInt(K_STAY, 30).takeIf { it > 0 },
+        routeFromMyLocation = prefs.getBoolean(K_ROUTE_FROM_ME, true),
     )
+
+    private inline fun <reified E : Enum<E>> enumPref(key: String, default: E): E =
+        prefs.getString(key, null)?.let { v -> enumValues<E>().firstOrNull { it.name == v } } ?: default
 
     fun save(s: AppSettings) {
         prefs.edit().apply {
@@ -71,6 +91,10 @@ class SettingsStore(context: Context) {
             if (s.customStartDay == null) remove(K_START) else putLong(K_START, s.customStartDay)
             if (s.customEndDay == null) remove(K_END) else putLong(K_END, s.customEndDay)
             putBoolean(K_ALL_DAY, s.showAllDay)
+            putString(K_AREA, s.areaMode.name)
+            putString(K_TRAVEL, s.travelMode.name)
+            putInt(K_STAY, s.stayMinutes ?: 0)
+            putBoolean(K_ROUTE_FROM_ME, s.routeFromMyLocation)
         }.apply()
     }
 
@@ -81,6 +105,10 @@ class SettingsStore(context: Context) {
         const val K_START = "custom_start_day"
         const val K_END = "custom_end_day"
         const val K_ALL_DAY = "show_all_day"
+        const val K_AREA = "area_mode"
+        const val K_TRAVEL = "travel_mode"
+        const val K_STAY = "stay_minutes"
+        const val K_ROUTE_FROM_ME = "route_from_my_location"
     }
 }
 

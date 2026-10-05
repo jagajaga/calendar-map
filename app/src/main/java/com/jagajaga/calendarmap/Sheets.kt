@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -54,19 +55,40 @@ import kotlin.math.roundToInt
 // ---------- Event details ----------
 
 @Composable
-fun PlaceSheet(place: Place, onDismiss: () -> Unit) {
+fun PlaceSheet(
+    place: Place,
+    planning: Boolean,
+    selectedKeys: Set<String>,
+    onToggle: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         LazyColumn(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (place.events.size > 1) {
+            if (planning) {
+                item { Text("Pick events for your route", style = MaterialTheme.typography.titleMedium) }
+            } else if (place.events.size > 1) {
                 item {
                     Text("${place.events.size} events here", style = MaterialTheme.typography.titleMedium)
                 }
             }
             items(place.events, key = { it.key }) { ev ->
-                EventCard(ev, place.point, place.distanceKm)
+                if (planning) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onToggle(ev.key) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = ev.key in selectedKeys, onCheckedChange = { onToggle(ev.key) })
+                        Column(Modifier.weight(1f)) {
+                            Text(ev.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(TimeFormat.pinLabel(ev), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else {
+                    EventCard(ev, place.point, place.distanceKm)
+                }
             }
         }
     }
@@ -132,19 +154,34 @@ fun EventListSheet(
     onDismiss: () -> Unit,
     onPick: (MappedEvent) -> Unit,
     onPickUnmapped: (CalEvent) -> Unit,
+    onToggle: (String) -> Unit,
 ) {
-    val inRadius = state.inRadius.sortedBy { it.event.begin }
-    val outside = state.mapped.filter { it !in state.inRadius }.sortedBy { it.event.begin }
+    val shown = state.shown.sortedBy { it.event.begin }
+    val shownKeys = shown.mapTo(HashSet()) { it.event.key }
+    val hidden = state.mapped.filter { it.event.key !in shownKeys }.sortedBy { it.event.begin }
+    val visibleMode = state.settings.areaMode == AreaMode.VISIBLE_MAP
+    val planning = state.planning
+    val selected = state.selectedKeys
+    val onRow = { m: MappedEvent -> if (planning) onToggle(m.event.key) else onPick(m) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
-            item { SectionHeader("On the map (${inRadius.size})") }
-            if (inRadius.isEmpty()) item { EmptyRow("No events with a place in this range.") }
-            items(inRadius, key = { "in" + it.event.key }) { m ->
-                EventRow(m.event, m.distanceKm) { onPick(m) }
+            if (planning) {
+                item { SectionHeader("Tick events for your route (${selected.size}/${RoutePlanner.MAX_STOPS})") }
             }
-            if (outside.isNotEmpty()) {
-                item { SectionHeader("Farther than ${state.settings.radiusKm} km (${outside.size})") }
-                items(outside, key = { "out" + it.event.key }) { m -> EventRow(m.event, m.distanceKm, dim = true) {} }
+            item { SectionHeader((if (visibleMode) "In view" else "On the map") + " (${shown.size})") }
+            if (shown.isEmpty()) item { EmptyRow("No events with a place here.") }
+            items(shown, key = { "in" + it.event.key }) { m ->
+                EventRow(m.event, m.distanceKm, checked = if (planning) m.event.key in selected else null) { onRow(m) }
+            }
+            if (hidden.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        (if (visibleMode) "Off-screen" else "Farther than ${state.settings.radiusKm} km") + " (${hidden.size})",
+                    )
+                }
+                items(hidden, key = { "out" + it.event.key }) { m ->
+                    EventRow(m.event, m.distanceKm, dim = !planning, checked = if (planning) m.event.key in selected else null) { onRow(m) }
+                }
             }
             if (state.unmapped.isNotEmpty()) {
                 item { SectionHeader("No place on the map (${state.unmapped.size})") }
@@ -170,12 +207,21 @@ private fun EmptyRow(text: String) {
 }
 
 @Composable
-private fun EventRow(event: CalEvent, distanceKm: Double?, dim: Boolean = false, onClick: () -> Unit) {
+private fun EventRow(
+    event: CalEvent,
+    distanceKm: Double?,
+    dim: Boolean = false,
+    checked: Boolean? = null,
+    onClick: () -> Unit,
+) {
     val alpha = if (dim) 0.6f else 1f
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (checked != null) {
+            Checkbox(checked = checked, onCheckedChange = { onClick() })
+        }
         ColorDot(event.color)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -212,9 +258,20 @@ fun SettingsSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
             item {
-                Text("Radius", style = MaterialTheme.typography.titleMedium)
-                RadiusEditor(settings.radiusKm, onChange = { r -> onChange { it.copy(radiusKm = r) } }, onCommitted = onRadiusCommitted)
-                if (!state.hasLocationPermission) {
+                Text("Show events", style = MaterialTheme.typography.titleMedium)
+                AreaMode.entries.forEach { mode ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onChange { it.copy(areaMode = mode) } },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = settings.areaMode == mode, onClick = { onChange { it.copy(areaMode = mode) } })
+                        Text(mode.label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                if (settings.areaMode == AreaMode.RADIUS) {
+                    RadiusEditor(settings.radiusKm, onChange = { r -> onChange { it.copy(radiusKm = r) } }, onCommitted = onRadiusCommitted)
+                }
+                if (settings.areaMode == AreaMode.RADIUS && !state.hasLocationPermission) {
                     Text(
                         "Location permission is off, so the radius can't be applied.",
                         style = MaterialTheme.typography.bodySmall,

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -25,7 +26,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -49,6 +51,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -79,19 +82,42 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     var showList by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showRouteSheet by remember { mutableStateOf(false) }
     var cameraSeq by remember { mutableIntStateOf(0) }
     var camera by remember { mutableStateOf(CameraRequest(id = 0)) }
-    fun moveCamera(center: LatLon? = null, fitRadiusKm: Int? = null) {
+    fun moveCamera(
+        center: LatLon? = null,
+        fitRadiusKm: Int? = null,
+        fitPoints: List<LatLon>? = null,
+        zoom: Double? = null,
+    ) {
         cameraSeq++
-        camera = CameraRequest(cameraSeq, center, fitRadiusKm)
+        camera = CameraRequest(cameraSeq, center, fitRadiusKm, fitPoints, zoom)
+    }
+    fun frameMyArea() = when (state.settings.areaMode) {
+        AreaMode.RADIUS -> moveCamera(fitRadiusKm = state.settings.radiusKm)
+        AreaMode.VISIBLE_MAP -> moveCamera(zoom = 14.0)
+    }
+    fun toggle(key: String) {
+        if (!vm.toggleSelected(key)) {
+            Toast.makeText(context, "A route can have at most ${RoutePlanner.MAX_STOPS} events", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    // Frame the radius once we first learn where the user is.
+    // Frame the user's area once we first learn where they are.
     var framedOnce by remember { mutableStateOf(false) }
     LaunchedEffect(state.myLocation) {
         if (state.myLocation != null && !framedOnce) {
             framedOnce = true
-            moveCamera(fitRadiusKm = state.settings.radiusKm)
+            frameMyArea()
+        }
+    }
+    // When a route arrives, show it whole and open its itinerary.
+    val route = state.route
+    LaunchedEffect(route) {
+        if (route != null) {
+            moveCamera(fitPoints = route.path.ifEmpty { route.events.map { it.point } })
+            showRouteSheet = true
         }
     }
 
@@ -107,9 +133,18 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             )
         },
         floatingActionButton = {
-            if (state.myLocation != null) {
-                FloatingActionButton(onClick = { moveCamera(fitRadiusKm = state.settings.radiusKm) }) {
-                    Icon(Icons.Default.LocationOn, "Show my area")
+            if (!state.planning && route == null && state.hasCalendarPermission) {
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state.myLocation != null) {
+                        SmallFloatingActionButton(onClick = { frameMyArea() }) {
+                            Icon(Icons.Default.LocationOn, "Show my area")
+                        }
+                    }
+                    ExtendedFloatingActionButton(
+                        onClick = { vm.startPlanning() },
+                        icon = { Icon(Icons.Default.Place, null) },
+                        text = { Text("Plan route") },
+                    )
                 }
             }
         },
@@ -146,17 +181,44 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 EventMap(
                     places = state.places,
                     myLocation = state.myLocation,
-                    radiusKm = state.settings.radiusKm,
+                    radiusKm = state.settings.radiusKm.takeIf { state.settings.areaMode == AreaMode.RADIUS },
+                    selectedKeys = if (state.planning || state.routing) state.selectedKeys else emptySet(),
+                    route = route,
                     camera = camera,
-                    onPlaceClick = { selectedPlace = it },
+                    onPlaceClick = { place ->
+                        if (state.planning && place.events.size == 1) toggle(place.events[0].key)
+                        else selectedPlace = place
+                    },
+                    onViewportChanged = vm::setViewport,
                     modifier = Modifier.fillMaxSize(),
                 )
+                when {
+                    state.planning || state.routing -> PlanningBar(
+                        selected = state.selectedKeys.size,
+                        routing = state.routing,
+                        onCancel = vm::cancelPlanning,
+                        onBuild = vm::buildRoute,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                    route != null && !showRouteSheet -> RouteBar(
+                        route = route,
+                        onShow = { showRouteSheet = true },
+                        onClear = vm::cancelPlanning,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
             }
         }
     }
 
     selectedPlace?.let { place ->
-        PlaceSheet(place = place, onDismiss = { selectedPlace = null })
+        PlaceSheet(
+            place = place,
+            planning = state.planning,
+            selectedKeys = state.selectedKeys,
+            onToggle = ::toggle,
+            onDismiss = { selectedPlace = null },
+        )
     }
     if (showList) {
         EventListSheet(
@@ -166,8 +228,10 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 showList = false
                 moveCamera(center = mapped.point)
                 selectedPlace = state.places.firstOrNull { it.point == mapped.point }
+                    ?: Place(mapped.point, listOf(mapped.event), mapped.distanceKm)
             },
             onPickUnmapped = { ev -> Actions.openInCalendar(context, ev) },
+            onToggle = ::toggle,
         )
     }
     if (showSettings) {
@@ -187,6 +251,28 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             onConfirm = { start, end ->
                 showDatePicker = false
                 vm.updateSettings { it.copy(preset = RangePreset.CUSTOM, customStartDay = start, customEndDay = end) }
+            },
+        )
+    }
+    if (route != null && showRouteSheet) {
+        RouteSheet(
+            route = route,
+            settings = state.settings,
+            hasLocation = state.myLocation != null,
+            routing = state.routing,
+            onChange = vm::updateSettings,
+            onDismiss = { showRouteSheet = false },
+            onEdit = {
+                showRouteSheet = false
+                vm.editSelection()
+            },
+            onClear = {
+                showRouteSheet = false
+                vm.cancelPlanning()
+            },
+            onFocus = { p ->
+                showRouteSheet = false
+                moveCamera(center = p)
             },
         )
     }
@@ -238,12 +324,18 @@ private fun StatusLine(state: UiState) {
             return
         }
         val parts = buildList {
-            val n = state.inRadius.size
+            val n = state.shown.size
+            fun events(k: Int) = "$k event${if (k == 1) "" else "s"}"
             add(
-                if (state.myLocation != null) "$n event${if (n == 1) "" else "s"} within ${state.settings.radiusKm} km"
-                else "$n event${if (n == 1) "" else "s"} (location unknown — radius off)",
+                when {
+                    state.settings.areaMode == AreaMode.VISIBLE_MAP -> "${events(n)} in view"
+                    state.myLocation != null -> "${events(n)} within ${state.settings.radiusKm} km"
+                    else -> "${events(n)} (location unknown — radius off)"
+                },
             )
-            if (state.outsideRadius > 0) add("${state.outsideRadius} farther away")
+            if (state.hidden > 0) {
+                add(if (state.settings.areaMode == AreaMode.VISIBLE_MAP) "${state.hidden} off-screen" else "${state.hidden} farther away")
+            }
             if (state.unmapped.isNotEmpty()) add("${state.unmapped.size} without a place")
         }
         Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall)

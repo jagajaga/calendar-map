@@ -59,4 +59,17 @@ class LogicTest {
         assertFalse(GeoResolver.looksVirtual("Alexanderplatz 1, Berlin"))
         assertFalse(GeoResolver.looksVirtual("Zoomstraße 5, Hamburg"))
     }
+
+    @Test fun boundsContainment() {
+        val sf = Bounds(north = 37.82, south = 37.70, east = -122.35, west = -122.52)
+        assertTrue(LatLon(37.7749, -122.4194) in sf)
+        assertFalse(LatLon(37.8044, -122.2712) in sf) // Oakland, across the bay
+        // A view spanning the antimeridian (west > east).
+        val pacific = Bounds(north = 10.0, south = -10.0, east = -170.0, west = 170.0)
+        assertTrue(LatLon(0.0, 179.0) in pacific)
+        assertTrue(LatLon(0.0, -175.0) in pacific)
+        assertFalse(LatLon(0.0, 0.0) in pacific)
+    }
+
+    @Test fun visibleAreaIsDefault() = assertEquals(AreaMode.VISIBLE_MAP, AppSettings().areaMode)
 }

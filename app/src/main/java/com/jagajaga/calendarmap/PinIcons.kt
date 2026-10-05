@@ -14,7 +14,14 @@ import androidx.core.graphics.ColorUtils
 
 /** Draws a speech-bubble pin with the event's time printed on it. */
 object PinIcons {
-    fun create(context: Context, lines: List<String>, color: Int): Drawable {
+    private val cache = android.util.LruCache<Triple<List<String>, Int, Boolean>, Drawable>(400)
+
+    fun get(context: Context, lines: List<String>, color: Int, highlighted: Boolean): Drawable {
+        val key = Triple(lines, color, highlighted)
+        return cache.get(key) ?: create(context, lines, color, highlighted).also { cache.put(key, it) }
+    }
+
+    private fun create(context: Context, lines: List<String>, color: Int, highlighted: Boolean): Drawable {
         val d = context.resources.displayMetrics.density
         val bg = color or 0xFF000000.toInt()
         val fg = if (ColorUtils.calculateLuminance(bg) > 0.55) Color.BLACK else Color.WHITE
@@ -35,9 +42,9 @@ object PinIcons {
 
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = bg }
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = Color.WHITE
+            this.color = if (highlighted) Color.BLACK else Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = 1.5f * d
+            strokeWidth = (if (highlighted) 3.5f else 1.5f) * d
         }
         val box = RectF(1f, 1f, width, boxH)
         val cx = (width + 1) / 2
@@ -58,12 +65,24 @@ object PinIcons {
         return BitmapDrawable(context.resources, bmp)
     }
 
-    fun linesFor(place: Place): List<String> {
+    /**
+     * @param selected keys of events picked for a route ("✓" mark).
+     * @param order route position by event key ("2 ·" prefix).
+     */
+    fun linesFor(place: Place, selected: Set<String>, order: Map<String, Int>): List<String> {
         val evs = place.events
+        val stops = evs.mapNotNull { order[it.key] }.sorted()
+        val prefix = when {
+            stops.isNotEmpty() -> stops.joinToString(",") + " · "
+            evs.any { it.key in selected } -> "✓ "
+            else -> ""
+        }
         return if (evs.size == 1) {
-            listOf(evs[0].title.take(28), TimeFormat.pinLabel(evs[0]))
+            listOf(prefix + evs[0].title.take(28), TimeFormat.pinLabel(evs[0]))
         } else {
-            listOf("${evs.size} events", TimeFormat.pinLabel(evs[0]), "…")
+            val picked = evs.count { it.key in selected }
+            val head = if (picked > 0 && stops.isEmpty()) "$picked of ${evs.size} events" else "${evs.size} events"
+            listOf(prefix + head, TimeFormat.pinLabel(evs[0]), "…")
         }
     }
 }
