@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calendar Map — Privacy Policy</title>
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Calendar Map — Privacy Policy" />
+<meta property="og:url" content="https://jagajaga.me/calendarmap/" />
+
+<style>
+  :root{
+    --bg:    #050604;   /* near-black canvas for the aurora */
+    --fg:    #e8efe4;
+    --muted: #8c8f80;
+    --maxw:  44rem;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{
+    background:var(--bg);
+    color:var(--fg);
+    color-scheme:dark;
+    font:17px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body{ margin:0; min-height:100vh; }
+
+  /* green aurora — a tiny low-res canvas, CSS-blurred so it stays cheap */
+  #aurora{
+    position:fixed;
+    top:-42.5%; left:-42.5%;
+    width:185%; height:185%;
+    z-index:-1;
+    opacity:.7;
+    filter:blur(0.5px) saturate(135%);
+    transform:rotate(22deg);
+    pointer-events:none;
+  }
+
+  #grain{
+    position:fixed; inset:0;
+    z-index:-1;
+    pointer-events:none;
+    opacity:.25;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:140px 140px;
+  }
+
+  main{
+    position:relative;
+    max-width:var(--maxw);
+    margin-inline:auto;
+    padding:clamp(2.5rem,5vw,5rem) 1.5rem 4rem;
+  }
+
+  .hero{ display:flex; align-items:flex-end; gap:1.75rem; flex-wrap:wrap; }
+  .icon{
+    display:block;
+    width:96px; height:96px; flex:0 0 auto;
+    object-fit:cover;
+    border:1px solid rgba(232,239,228,.28);
+    border-radius:20px;
+  }
+  .intro h1{
+    font:400 clamp(1.8rem,1.2rem+2.4vw,2.6rem)/1.06 Georgia,"Times New Roman",serif;
+    letter-spacing:-.01em;
+    margin:0;
+  }
+  .intro p.sub{
+    margin:.4rem 0 0;
+    color:var(--muted);
+    font-size:.95rem;
+  }
+
+  .mark{
+    margin:.55rem 0 0;
+    font:1rem/1 ui-monospace,"SF Mono",Menlo,monospace;
+    color:#8c8f80;
+    letter-spacing:.14em;
+  }
+
+  /* ── policy body, styled like the Agda bio block ─────────── */
+  .doc{
+    margin:2.75rem 0 0;
+    background:#15160f;
+    color:#cdd8c4;
+    border:1px solid #20241c;
+    border-radius:12px;
+    padding:1.6rem 1.9rem 1.8rem;
+    box-shadow:0 24px 70px rgba(61,220,124,.07);
+  }
+  .doc h2{
+    font:600 1rem/1.4 ui-monospace,"SF Mono",Menlo,monospace;
+    color:#5BE892;
+    margin:1.9rem 0 .6rem;
+    letter-spacing:.01em;
+  }
+  .doc h2:first-child{ margin-top:0; }
+  .doc p{ margin:.5rem 0; font-size:.95rem; }
+  .doc ul{ margin:.5rem 0; padding-left:1.3rem; }
+  .doc li{ margin:.35rem 0; font-size:.95rem; }
+  .doc strong{ color:#e8efe4; }
+  .doc code{
+    font:0.85em ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    color:#9ff5bd;
+    background:#0e0f0a;
+    padding:.1em .35em;
+    border-radius:4px;
+  }
+  .doc a{ color:#5BE892; text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:1px; }
+  .doc a:hover{ color:#9ff5bd; }
+  .doc .updated{ color:#8aa581; font-size:.85rem; margin-top:0; }
+
+  footer{
+    margin-top:2.75rem;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font:11px/1 ui-monospace,"SF Mono",Menlo,monospace;
+    color:#41443a;
+    letter-spacing:.12em;
+  }
+  footer a{ color:#5f6f59; text-decoration:none; }
+  footer a:hover{ color:#8aa581; }
+  .doc table{ width:100%; border-collapse:collapse; margin:.75rem 0; font-size:.88rem; }
+  .doc th,.doc td{ text-align:left; vertical-align:top; padding:.45rem .5rem; border-bottom:1px solid #2a2f24; }
+  .doc th{ color:#8aa581; font-weight:600; }
+</style>
+</head>
+
+<body>
+<canvas id="aurora"></canvas>
+<div id="grain"></div>
+<main>
+
+  <header class="hero">
+    <div class="intro">
+      <p class="mark">λ : calendarmap</p>
+      <h1>Calendar Map</h1>
+      <p class="sub">Privacy Policy</p>
+    </div>
+  </header>
+
+  <div class="doc">
+    <p class="updated">Last updated: October 5, 2026</p>
+
+    <h2>module Privacy where</h2>
+    <p>Calendar Map ("the app") is developed by Arseniy Seroka ("we", "us") and is <a href="https://github.com/jagajaga/calendar-map">open source</a>. It shows events from the calendars on your phone on a map. We run no servers and receive no data from the app. No accounts, no ads, no analytics, no crash reporting. To draw maps, find places and plan routes, the app sends a small amount of data directly from your phone to the services listed below.</p>
+
+    <h2>data read on your device</h2>
+    <ul>
+      <li><strong>Calendar events</strong> (<code>READ_CALENDAR</code>): for events in the time range you pick, their title, start and end time, location, description, calendar name and colour. Shown in the app and not sent anywhere, except an event's <em>location text</em> as described below.</li>
+      <li><strong>Your location</strong> (<code>ACCESS_FINE_LOCATION</code> / <code>ACCESS_COARSE_LOCATION</code>, only while the app is open): used on your device to show where you are, measure how far events are, and as the starting point of a route.</li>
+    </ul>
+
+    <h2>sent over the internet ≔ what → whom</h2>
+    <table>
+      <tr><th>What</th><th>Sent to</th><th>When</th></tr>
+      <tr><td>An event's location text (an address or place name)</td><td>Your phone's built-in geocoding service (on most phones, Google)</td><td>The first time that location is placed on the map; the result is cached on your device</td></tr>
+      <tr><td>Which map area you are viewing (map tile requests) and your IP address</td><td>OpenStreetMap Foundation tile servers (<code>tile.openstreetmap.org</code>)</td><td>Whenever map tiles load</td></tr>
+      <tr><td>Coordinates of the events in a route, plus your location if the route starts from it</td><td>OpenStreetMap routing service run by FOSSGIS e.V. (<code>routing.openstreetmap.de</code>)</td><td>Only when you build a route</td></tr>
+    </table>
+    <p>These services process the data to answer the request; their own policies apply: <a href="https://policies.google.com/privacy">Google</a>, <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation</a>, <a href="https://www.fossgis.de/datenschutzerklaerung/">FOSSGIS</a>. When you tap <strong>Open in Google Maps</strong> or <strong>Open in calendar</strong>, that event's place or route is handed to the app you open, and that app's policy applies. All connections use HTTPS.</p>
+
+    <h2>stored on your device</h2>
+    <ul>
+      <li>Your settings (time range, calendars, area mode, radius, route options)</li>
+      <li>A cache of place lookups (location text → coordinates)</li>
+      <li>A cache of map tiles</li>
+    </ul>
+    <p>Kept in the app's private storage. Uninstalling the app or clearing its data in Android Settings deletes it.</p>
+
+    <h2>what the app does NOT do</h2>
+    <ul>
+      <li>No accounts or sign-in</li>
+      <li>No ads, analytics, tracking or advertising ID</li>
+      <li>No crash reports or diagnostics sent to us or anyone else</li>
+      <li>No location access in the background</li>
+      <li>Never changes your calendar</li>
+    </ul>
+
+    <h2>children's privacy</h2>
+    <p>The app is not directed at children and does not knowingly collect data from anyone.</p>
+
+    <h2>changes</h2>
+    <p>If this policy changes, the updated version will be posted at this same URL with a new "Last updated" date. If what the app sends changes, the app shows its in-app explanation again.</p>
+
+    <h2>contact</h2>
+    <p><a href="https://jagajaga.me">jagajaga.me</a> · <a href="https://github.com/jagajaga/calendar-map/issues">GitHub issues</a></p>
+  </div>
+
+  <footer>
+    <span id="y">2026</span>
+    <a href="https://jagajaga.me">← jagajaga.me</a>
+  </footer>
+
+</main>
+<script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+<script type="module">
+  import { aurora, presets } from 'https://esm.sh/coaurora@0.2.0';
+  aurora(document.body, { ...presets.jagajaga });
+</script>
+</body>
+</html>

@@ -9,13 +9,17 @@ plugins {
 val keystorePath: String? = System.getenv("SIGNING_KEYSTORE_FILE")
 
 android {
+    // The Kotlin package stays com.jagajaga.calendarmap; the store identity is
+    // me.jagajaga.* (reverse of jagajaga.me). applicationId can never change once
+    // the app is on Google Play.
     namespace = "com.jagajaga.calendarmap"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.jagajaga.calendarmap"
+        applicationId = "me.jagajaga.calendarmap"
         minSdk = 26
-        targetSdk = 35
+        // Google Play requires API 36 for new apps and updates from 2026-08-31.
+        targetSdk = 36
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "dev"
     }

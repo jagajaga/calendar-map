@@ -31,7 +31,8 @@ jobs:
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
           echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=1.0.${{ github.run_number }}-$SHORT_SHA" >> "$GITHUB_ENV"
+          # Shown to users on Google Play, so keep it clean; the commit is in the release notes.
+          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
 
       - name: Set up release signing key
         env:
@@ -53,7 +54,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Test and build
-        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease bundleRelease
 
       - name: Verify APK signature
         run: |
@@ -65,11 +66,13 @@ jobs:
           fi
           mkdir -p dist
           cp "$APK" "dist/calendar-map-$VERSION_NAME.apk"
+          # The app bundle is what Google Play takes (signed with the upload key).
+          cp app/build/outputs/bundle/release/app-release.aab "dist/calendar-map-$VERSION_NAME.aab"
 
       - uses: actions/upload-artifact@v5
         with:
           name: calendar-map-${{ env.VERSION_NAME }}
-          path: dist/*.apk
+          path: dist/*
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -80,5 +83,5 @@ jobs:
           TITLE="Build ${{ github.run_number }} ($SHORT_SHA)"
           git log -1 --format='%s%n%n%b' > notes.md
           printf '\n---\nCommit: %s\n' "$GITHUB_SHA" >> notes.md
-          gh release create "build-${{ github.run_number }}" dist/*.apk \
+          gh release create "build-${{ github.run_number }}" dist/* \
             --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest

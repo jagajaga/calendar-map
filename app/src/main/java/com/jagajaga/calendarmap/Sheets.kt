@@ -313,6 +313,8 @@ fun SettingsSheet(
             item {
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 TextButton(onClick = onClearCache) { Text("Re-look-up all event places") }
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                AboutSection()
             }
         }
     }
@@ -376,4 +378,23 @@ private fun posToKm(pos: Float): Int {
         else -> 25.0
     }
     return ((raw / step).roundToInt() * step).toInt().coerceIn(MIN_KM, SLIDER_MAX_KM.toInt())
+}
+
+@Composable
+private fun AboutSection() {
+    val context = LocalContext.current
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "dev"
+    }
+    Text("About & privacy", style = MaterialTheme.typography.titleMedium)
+    Text("Calendar Map $version · open source (MIT)", style = MaterialTheme.typography.bodySmall)
+    Row {
+        TextButton(onClick = { Actions.openUrl(context, Links.PRIVACY_POLICY) }) { Text("Privacy policy") }
+        TextButton(onClick = { Actions.openUrl(context, Links.SOURCE_CODE) }) { Text("Source code") }
+    }
+    Text(
+        "Map data © OpenStreetMap contributors. Routing by OSRM on routing.openstreetmap.de (FOSSGIS).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

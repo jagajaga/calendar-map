@@ -71,11 +71,21 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         asked = true
         vm.onPermissionsChanged()
     }
-    LaunchedEffect(Unit) {
+    var disclosed by remember { mutableStateOf(Disclosure.isAccepted(context)) }
+    LaunchedEffect(disclosed) {
         vm.onPermissionsChanged()
-        if (!vm.state.value.hasCalendarPermission || !vm.state.value.hasLocationPermission) {
-            permissionLauncher.launch(MainActivity.PERMISSIONS)
-        }
+        val missing = !vm.state.value.hasCalendarPermission || !vm.state.value.hasLocationPermission
+        if (disclosed && missing) permissionLauncher.launch(MainActivity.PERMISSIONS)
+    }
+    if (!disclosed) {
+        DisclosureScreen(
+            onContinue = {
+                Disclosure.accept(context)
+                disclosed = true
+            },
+            onOpenPolicy = { Actions.openUrl(context, Links.PRIVACY_POLICY) },
+        )
+        return
     }
 
     var selectedPlace by remember { mutableStateOf<Place?>(null) }

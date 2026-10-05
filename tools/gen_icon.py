@@ -2,7 +2,8 @@
 
 One shape list drives both the Android vector drawable and a PNG preview, so
 the preview is exactly what ships. Run:
-    python tools/gen_icon.py [preview.png]   (preview needs Pillow)
+    python tools/gen_icon.py [preview.png] [--store]   (PNGs need Pillow)
+--store also writes the Google Play icon and feature graphic to store-listing/graphics/.
 """
 import math
 import pathlib
@@ -137,7 +138,8 @@ def monochrome_paths():
     ]
 
 
-def render_preview(path, size=432):
+def render_square(size):
+    """The full 108-unit icon canvas (background + composition) as a PIL image."""
     from PIL import Image, ImageDraw
 
     ss = 4
@@ -173,8 +175,13 @@ def render_preview(path, size=432):
                     d.rectangle([x * k, y * k, (x + cell) * k, (y + cell) * k], fill=color)
             d.rectangle([x0 * k, y0 * k, (x0 + n * cell) * k, (y0 + n * cell) * k],
                         outline=colors[0], width=max(1, round(0.6 * k)))
-    img = img.resize((size, size), Image.LANCZOS)
+    return img.resize((size, size), Image.LANCZOS)
 
+
+def render_preview(path, size=432):
+    from PIL import Image, ImageDraw
+
+    img = render_square(size)
     # Show it the way a launcher would: circle mask over the central 72/108.
     mask = Image.new("L", (size, size), 0)
     m = size * 18 / 108
@@ -187,8 +194,35 @@ def render_preview(path, size=432):
     sheet.save(path)
 
 
+def render_store_assets(outdir):
+    """Google Play listing art: 512x512 icon and 1024x500 feature graphic."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    # Play masks the icon itself, so crop to the same central area launchers show.
+    big = render_square(768)
+    crop = 768 * 18 // 108
+    big.crop((crop, crop, 768 - crop, 768 - crop)).resize((512, 512), Image.LANCZOS).save(outdir / "icon-512.png")
+
+    fg = Image.new("RGB", (1024, 500), BG)
+    art = render_square(620)
+    fg.paste(art.crop((60, 60, 560, 560)), (24, 0))
+    d = ImageDraw.Draw(fg)
+    fonts = pathlib.Path("/usr/share/fonts/truetype/dejavu")
+    title = ImageFont.truetype(str(fonts / "DejaVuSerif-Bold.ttf"), 72)
+    sub = ImageFont.truetype(str(fonts / "DejaVuSans.ttf"), 30)
+    d.text((540, 170), "Calendar", font=title, fill=INK)
+    d.text((540, 250), "Map", font=title, fill="#D62828")
+    d.text((544, 350), "Your events, on the map.", font=sub, fill="#3A3A3A")
+    d.line([(540, 340), (960, 340)], fill=INK, width=3)
+    fg.save(outdir / "feature-graphic-1024x500.png")
+
+
 if __name__ == "__main__":
     write_vector("ic_launcher_foreground.xml", vector_paths())
     write_vector("ic_launcher_monochrome.xml", monochrome_paths())
     if len(sys.argv) > 1:
         render_preview(sys.argv[1])
+    if "--store" in sys.argv:
+        render_store_assets(ROOT / "store-listing" / "graphics")

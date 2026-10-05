@@ -44,9 +44,19 @@ APKs for every other commit and pull request are in the run's **Artifacts**
 section under [Actions](../../actions). Artifacts download as a zip, and you
 must be signed in to GitHub to get them.
 
+## Google Play
+
+Store listing text, graphics, the privacy policy, Data safety answers and a
+submission checklist are in [`store-listing/`](store-listing/). Start with
+[`store-listing/play-console.md`](store-listing/play-console.md). The
+privacy policy is published at https://jagajaga.me/calendarmap/ (source:
+`docs/calendarmap/index.html`). Each release has an `.aab` for Play next to
+the `.apk`. Later uploads can go through the manual **Publish to Google
+Play** workflow.
+
 ## Build locally
 
-Requires JDK 17 and the Android SDK (platform 35).
+Requires JDK 17 and the Android SDK (platform 36).
 
 ```sh
 ./gradlew testReleaseUnitTest assembleRelease

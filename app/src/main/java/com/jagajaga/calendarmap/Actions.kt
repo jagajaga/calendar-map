@@ -58,6 +58,8 @@ object Actions {
         )
     }
 
+    fun openUrl(context: Context, url: String) = launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+
     fun openAppSettings(context: Context) = launch(
         context,
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),

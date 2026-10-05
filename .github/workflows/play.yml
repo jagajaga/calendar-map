@@ -1,0 +1,55 @@
+name: Publish to Google Play
+
+# Manual: uploads the app bundle from a release build to a Play track.
+# Needs the PLAY_SERVICE_ACCOUNT_JSON secret (see store-listing/play-console.md),
+# and the very first upload of the app must be done by hand in Play Console.
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: "Release to publish, e.g. build-12 (empty = latest)"
+        required: false
+      track:
+        description: "Play track"
+        required: true
+        default: internal
+        type: choice
+        options: [internal, alpha, beta, production]
+      status:
+        description: "Release status"
+        required: true
+        default: completed
+        type: choice
+        options: [completed, draft]
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secret
+        env:
+          JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$JSON" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not set; see store-listing/play-console.md"; exit 1
+          fi
+
+      - name: Download app bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.build }}
+        run: |
+          mkdir dist
+          gh release download ${TAG:+"$TAG"} -R "$GITHUB_REPOSITORY" --pattern '*.aab' --dir dist
+          ls -la dist
+
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: me.jagajaga.calendarmap
+          releaseFiles: dist/*.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}
